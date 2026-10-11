@@ -9,7 +9,7 @@
  *
  *   // Who is playing? A name and a colour. null until somebody picked one.
  *   const me = arcade.player();                    // { name: 'Zoë', colour: '#e0405f' } | null
- *   await arcade.ui.ensurePlayer(document.body);   // shows "Who's playing?" if needed
+ *   await arcade.ui.ensurePlayer(document.body);   // shows the player card if needed
  *
  *   // Remember things for this player in this game (max 100 KB in all).
  *   arcade.save('best', 12);                       // numbers, text, true/false, lists, plain objects
@@ -78,7 +78,7 @@ export const arcade = {
   gameId,
   /** Who is playing on this device, or null if nobody picked yet. */
   player: store.player,
-  /** Set who is playing (the "Who's playing?" screen calls this for you). */
+  /** Set who is playing (the player card calls this for you). */
   setPlayer: store.setPlayer,
   /** Save JSON for this player in this game. Throws a clear error above 100 KB in all. `save(key, undefined)` removes it. */
   save: store.save,

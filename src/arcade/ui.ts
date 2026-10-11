@@ -1,5 +1,5 @@
 /**
- * The kit's two small screens: "Who's playing?" and "Play together".
+ * The kit's two small screens: the player card and "Play together".
  *
  * Plain DOM, styles injected from here (nothing is fetched from anywhere).
  * Tap targets are 48px or more, text is 16px or more, everything works with a
@@ -67,7 +67,7 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, props: Props = {}, ..
 
 let uid = 0;
 
-// ── Who's playing? ─────────────────────────────────────────────────────
+// ── Player card ────────────────────────────────────────────────────────
 
 export interface PlayerUi {
   playerPicker(container: HTMLElement): Promise<Player>;
@@ -100,7 +100,7 @@ export function createUi({ getPlayer, setPlayer, together }: UiDeps): PlayerUi {
       const input = el('input', { class: 'ak-input ak-name', id: `ak-name-${id}`, type: 'text', maxlength: '20', autocomplete: 'off', autocapitalize: 'words', spellcheck: 'false' });
       input.value = existing?.name ?? '';
       const error = el('div', { class: 'ak-error', role: 'alert', hidden: '' });
-      const swatches = el('div', { class: 'ak-swatches', role: 'radiogroup', 'aria-label': 'Your colour' });
+      const swatches = el('div', { class: 'ak-swatches', role: 'radiogroup', 'aria-label': 'Colour' });
       const buttons = PLAYER_COLOURS.map((c, i) => {
         const b = el('button', { class: 'ak-swatch', type: 'button', role: 'radio', 'aria-label': `Colour ${i + 1}` });
         b.style.background = c;
@@ -121,7 +121,7 @@ export function createUi({ getPlayer, setPlayer, together }: UiDeps): PlayerUi {
 
       const go = el('button', { class: 'ak-btn ak-primary', type: 'button' }, "Let's play");
       const card = el('div', { class: 'ak-card', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': `ak-title-${id}` });
-      card.append(el('h2', { id: `ak-title-${id}` }, "Who's playing?"), el('label', { for: `ak-name-${id}` }, 'Your name'), input, el('label', {}, 'Your colour'), swatches, error, go);
+      card.append(el('h2', { id: `ak-title-${id}` }, existing ? 'Player' : 'New player'), el('label', { for: `ak-name-${id}` }, 'Name'), input, el('label', {}, 'Colour'), swatches, error, go);
       const overlay = el('div', { class: 'ak-overlay' }, card);
 
       const done = (p: Player) => {

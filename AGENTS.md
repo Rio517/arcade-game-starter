@@ -46,7 +46,7 @@ Write for a child of about 8 to 12, often read aloud by a grown-up. Use short se
 import { arcade } from './arcade';
 
 arcade.player();                       // { name, colour: '#rrggbb' } or null
-await arcade.ui.ensurePlayer(document.body);   // "Who's playing?" if nobody yet
+await arcade.ui.ensurePlayer(document.body);   // the player card if nobody yet
 arcade.save('best', 12);               // JSON, per player, per game, 100 KB max in all (throws above that)
 arcade.load<number>('best');           // undefined if never saved
 arcade.cameFromArcade();               // opened from the family arcade?
