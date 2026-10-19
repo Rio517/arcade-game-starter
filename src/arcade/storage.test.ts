@@ -91,6 +91,29 @@ describe('arcade storage', () => {
     expect(s.backUrl()).toBeNull();
   });
 
+  it("keeps the arcade's player on the saves a child made here under the same name in another case", () => {
+    const own = make();
+    own.setPlayer({ name: 'klara ', colour: '#e0405f' });
+    own.save('mall', { shops: 3 });
+    own.setPlayer({ name: 'Zoë', colour: '#3d6bd6' });
+    own.save('mall', { shops: 9 });
+    const arcade = (name: string) =>
+      createStore({ gameId: 'star-catch', local: window.localStorage, session: window.sessionStorage, arcadePlayer: () => ({ name, colour: '#34e0c8' }) });
+    const s = arcade('Klara');
+    expect(s.load('mall')).toEqual({ shops: 3 });
+    s.save('mall', { shops: 4 });
+    expect(window.localStorage.getItem('arcade-kit:star-catch:klara:mall')).toBe('{"shops":4}');
+    expect(window.localStorage.getItem('arcade-kit:star-catch:Klara:mall')).toBeNull();
+    expect(arcade('Robin').load('mall')).toBeUndefined();
+  });
+
+  it('prefers saves under the exact name when both cases exist', () => {
+    window.localStorage.setItem('arcade-kit:star-catch:klara:mall', '1');
+    window.localStorage.setItem('arcade-kit:star-catch:Klara:mall', '2');
+    const s = createStore({ gameId: 'star-catch', local: window.localStorage, session: window.sessionStorage, arcadePlayer: () => ({ name: 'Klara', colour: '#34e0c8' }) });
+    expect(s.load('mall')).toBe(2);
+  });
+
   it('reports the arcade address remembered for this tab', () => {
     window.sessionStorage.setItem('arcade-kit:back', 'https://familyarcade.eu/');
     expect(make().backUrl()).toBe('https://familyarcade.eu/');

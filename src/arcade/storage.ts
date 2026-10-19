@@ -44,8 +44,31 @@ export function createStore({ gameId, local, session, arcadePlayer }: StoreOptio
   const who = (): Player | null => arcadePlayer?.() ?? own;
 
   const bytes = (s: string) => new TextEncoder().encode(s).length;
-  const keyFor = (p: Player, key: string) => `${prefix}${encodeURIComponent(p.name)}:${key}`;
   const isSaveKey = (k: string) => k.startsWith(prefix) && k !== playerKey;
+  const fold = (name: string) => name.trim().toLowerCase();
+
+  /**
+   * The name a player's saves sit under. The arcade's player keeps the saves a child made here under the same name
+   * typed in another case ("klara" for the arcade's "Klara"), as long as nothing is saved under the exact name yet.
+   */
+  function savesName(p: Player): string {
+    if (!arcadePlayer?.()) return p.name;
+    const names = new Set<string>();
+    for (let i = 0; i < store.length; i++) {
+      const k = store.key(i);
+      if (!k || !isSaveKey(k)) continue;
+      const end = k.indexOf(':', prefix.length);
+      if (end < 0) continue;
+      try {
+        names.add(decodeURIComponent(k.slice(prefix.length, end)));
+      } catch {
+        /* not a key this kit wrote */
+      }
+    }
+    if (names.has(p.name)) return p.name;
+    return [...names].sort().find((n) => fold(n) === fold(p.name)) ?? p.name;
+  }
+  const keyFor = (p: Player, key: string) => `${prefix}${encodeURIComponent(savesName(p))}:${key}`;
 
   try {
     own = cleanPlayer(JSON.parse(store.getItem(playerKey) ?? 'null'));
