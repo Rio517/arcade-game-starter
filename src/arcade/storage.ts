@@ -17,6 +17,8 @@ export interface StoreOptions {
   gameId: string;
   local: Storage | null;
   session: Storage | null;
+  /** The family arcade's own player, when this page is on its origin. It wins over the one kept here. */
+  arcadePlayer?: () => Player | null;
 }
 
 /** Stand-in used when the browser refuses localStorage (some private windows). */
@@ -34,20 +36,21 @@ function memoryStorage(): Storage {
   };
 }
 
-export function createStore({ gameId, local, session }: StoreOptions) {
+export function createStore({ gameId, local, session, arcadePlayer }: StoreOptions) {
   const store: Storage = local ?? memoryStorage();
   const prefix = `arcade-kit:${gameId}:`;
   const playerKey = `${prefix}player`;
-  let current: Player | null = null;
+  let own: Player | null = null;
+  const who = (): Player | null => arcadePlayer?.() ?? own;
 
   const bytes = (s: string) => new TextEncoder().encode(s).length;
   const keyFor = (p: Player, key: string) => `${prefix}${encodeURIComponent(p.name)}:${key}`;
   const isSaveKey = (k: string) => k.startsWith(prefix) && k !== playerKey;
 
   try {
-    current = cleanPlayer(JSON.parse(store.getItem(playerKey) ?? 'null'));
+    own = cleanPlayer(JSON.parse(store.getItem(playerKey) ?? 'null'));
   } catch {
-    current = null;
+    own = null;
   }
 
   function usedBytes(): number {
@@ -60,14 +63,17 @@ export function createStore({ gameId, local, session }: StoreOptions) {
   }
 
   return {
-    player: (): Player | null => (current ? { ...current } : null),
+    player: (): Player | null => {
+      const p = who();
+      return p ? { ...p } : null;
+    },
 
     setPlayer(p: Player): void {
       const clean = cleanPlayer(p);
       if (!clean) {
         throw new Error('arcade.setPlayer: a player needs a name of 1 to 20 characters and a colour like "#e0405f".');
       }
-      current = clean;
+      own = clean;
       try {
         store.setItem(playerKey, JSON.stringify(clean));
       } catch {
@@ -77,6 +83,7 @@ export function createStore({ gameId, local, session }: StoreOptions) {
 
     save(key: string, value: unknown): void {
       if (typeof key !== 'string' || key === '') throw new Error('arcade.save: the key must be a non-empty string.');
+      const current = who();
       if (!current) throw new Error('arcade.save: nobody is playing yet. Call arcade.setPlayer(...) or arcade.ui.ensurePlayer(...) first.');
       const full = keyFor(current, key);
       if (value === undefined) {
@@ -106,6 +113,7 @@ export function createStore({ gameId, local, session }: StoreOptions) {
     },
 
     load<T>(key: string): T | undefined {
+      const current = who();
       if (!current) return undefined;
       const raw = store.getItem(keyFor(current, key));
       if (raw === null) return undefined;

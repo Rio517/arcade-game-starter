@@ -88,10 +88,19 @@ interface UiDeps {
   getPlayer: () => Player | null;
   setPlayer: (p: Player) => void;
   together: Together;
+  /** On the family arcade's origin the arcade's own player screen replaces this form. */
+  arcade?: { onArcade(): boolean; openPlayerScreen(): void };
 }
 
-export function createUi({ getPlayer, setPlayer, together }: UiDeps): PlayerUi {
+export function createUi({ getPlayer, setPlayer, together, arcade }: UiDeps): PlayerUi {
+  /** Leave for the arcade's player screen. The page is gone, so the promise never settles. */
+  function viaArcade(): Promise<Player> {
+    arcade!.openPlayerScreen();
+    return new Promise<Player>(() => {});
+  }
+
   function playerPicker(container: HTMLElement): Promise<Player> {
+    if (arcade?.onArcade()) return viaArcade();
     injectStyles();
     const existing = getPlayer();
     return new Promise((resolve) => {

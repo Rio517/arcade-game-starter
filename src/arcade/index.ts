@@ -9,7 +9,7 @@
  *
  *   // Who is playing? A name and a colour. null until somebody picked one.
  *   const me = arcade.player();                    // { name: 'Zoë', colour: '#e0405f' } | null
- *   await arcade.ui.ensurePlayer(document.body);   // shows the player card if needed
+ *   await arcade.ui.ensurePlayer(document.body);   // shows the player card if needed (on the family arcade: its own player screen)
  *
  *   // Remember things for this player in this game (max 100 KB in all).
  *   arcade.save('best', 12);                       // numbers, text, true/false, lists, plain objects
@@ -36,6 +36,7 @@
  */
 
 import manifest from '../../public/arcade.json';
+import { createArcadePlayer } from './arcadePlayer';
 import { consumeHandoff, decodeHandoff, encodeHandoff } from './handoff';
 import { cleanPlayer, type Player } from './player';
 import { createStore } from './storage';
@@ -60,10 +61,14 @@ function safe<T>(get: () => T): T | null {
   }
 }
 
+const local = safe(() => window.localStorage);
+const arcadePlayer = createArcadePlayer({ gameId, local, session: safe(() => window.sessionStorage), location: window.location });
+
 const store = createStore({
   gameId,
-  local: safe(() => window.localStorage),
+  local,
   session: safe(() => window.sessionStorage),
+  arcadePlayer: arcadePlayer.player,
 });
 
 // Opened from the arcade? Pick up who is playing, then tidy the address bar.
@@ -71,12 +76,12 @@ const handoff = consumeHandoff(window, safe(() => window.sessionStorage));
 if (handoff) store.setPlayer(cleanPlayer(handoff) as Player);
 
 const together = createTogether({ gameId, getPlayer: store.player });
-const ui = createUi({ getPlayer: store.player, setPlayer: store.setPlayer, together });
+const ui = createUi({ getPlayer: store.player, setPlayer: store.setPlayer, together, arcade: arcadePlayer });
 
 export const arcade = {
   /** The id from public/arcade.json. */
   gameId,
-  /** Who is playing on this device, or null if nobody picked yet. */
+  /** Who is playing: the family arcade's player when the game runs on its origin, else the one picked here; null if nobody picked yet. */
   player: store.player,
   /** Set who is playing (the player card calls this for you). */
   setPlayer: store.setPlayer,
