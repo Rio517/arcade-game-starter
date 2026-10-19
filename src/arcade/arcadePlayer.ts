@@ -17,6 +17,8 @@ import { cleanPlayer, type Player } from './player';
 
 export const ARCADE_PLAYER_KEY = 'arcade.current-player.v1';
 export const ARCADE_USERS_KEY = 'arcade.users.v1';
+/** The family arcade's own addresses: a game under /<game id>/ here is the arcade's game even before the browser has any arcade data. */
+export const ARCADE_HOSTS = ['familyarcade.eu', 'www.familyarcade.eu'];
 
 export interface ArcadePlayerOptions {
   gameId: string;
@@ -24,7 +26,7 @@ export interface ArcadePlayerOptions {
   /** Remembers a trip to the player screen, so a screen that cannot answer never loops. */
   session?: Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> | null;
   now?: () => number;
-  location: { pathname: string; search: string; replace(url: string): void };
+  location: { hostname?: string; pathname: string; search: string; replace(url: string): void };
 }
 
 const TRIP_KEY = 'arcade-kit:player-trip';
@@ -78,7 +80,7 @@ export function createArcadePlayer({ gameId, local, session = null, now = Date.n
       if (now() - lastTrip() < TRIP_WINDOW_MS) return false;
       if (read(ARCADE_PLAYER_KEY) !== null) return true;
       const under = location.pathname === `/${gameId}` || location.pathname.startsWith(`/${gameId}/`);
-      return under && read(ARCADE_USERS_KEY) !== null;
+      return under && (read(ARCADE_USERS_KEY) !== null || ARCADE_HOSTS.includes(location.hostname ?? ''));
     },
 
     /** Open the arcade's player screen; it brings the child back to this page. */

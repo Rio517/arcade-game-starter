@@ -3,9 +3,9 @@ import { createArcadePlayer, ARCADE_PLAYER_KEY, ARCADE_USERS_KEY } from './arcad
 import { createStore } from './storage';
 import { createUi } from './ui';
 
-function setup(pathname = '/offroad/', gameId = 'offroad', now = () => 1_000_000) {
+function setup(pathname = '/offroad/', gameId = 'offroad', now = () => 1_000_000, hostname = 'localhost') {
   const replace = vi.fn();
-  const location = { pathname, search: '', replace };
+  const location = { hostname, pathname, search: '', replace };
   const ap = createArcadePlayer({ gameId, local: window.localStorage, session: window.sessionStorage, now, location });
   return { ap, replace, location };
 }
@@ -39,6 +39,12 @@ describe('the arcade player contract', () => {
     window.localStorage.clear();
     window.localStorage.setItem(ARCADE_PLAYER_KEY, '{corrupt');
     expect(setup('/somewhere/else/').ap.onArcade()).toBe(true);
+  });
+
+  it('knows familyarcade.eu is the arcade before the browser has any arcade data', () => {
+    expect(setup('/offroad/', 'offroad', () => 1_000_000, 'familyarcade.eu').ap.onArcade()).toBe(true);
+    expect(setup('/elsewhere/', 'offroad', () => 1_000_000, 'familyarcade.eu').ap.onArcade()).toBe(false);
+    expect(setup('/offroad/', 'offroad', () => 1_000_000, 'someone.github.io').ap.onArcade()).toBe(false);
   });
 
   it('opens the arcade’s player screen with this page as the way back', () => {
