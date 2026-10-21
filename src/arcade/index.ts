@@ -62,7 +62,14 @@ function safe<T>(get: () => T): T | null {
 }
 
 const local = safe(() => window.localStorage);
-const arcadePlayer = createArcadePlayer({ gameId, local, session: safe(() => window.sessionStorage), location: window.location });
+const arcadePlayer = createArcadePlayer({
+  gameId,
+  local,
+  session: safe(() => window.sessionStorage),
+  location: window.location,
+  // A dev server (npm run dev) sends the player to the arcade's dev server (npm run dev:player there); a build has none of this.
+  dev: import.meta.env.DEV ? { origin: import.meta.env.VITE_ARCADE_ORIGIN, port: 5189 } : null,
+});
 
 const store = createStore({
   gameId,

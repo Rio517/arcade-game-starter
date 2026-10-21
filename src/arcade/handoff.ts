@@ -8,13 +8,14 @@
  * It travels in the URL fragment, which the browser never sends to any server.
  */
 
+import { isDevHost } from './arcadePlayer';
 import { cleanName, isColour } from './player';
 
 export interface Handoff {
   name: string;
   /** '#rrggbb', lower case */
   colour: string;
-  /** An https: address the "back to the arcade" button goes to. */
+  /** An https: address (http: for a dev server on the developer's network) the "back to the arcade" button goes to. */
   back: string;
 }
 
@@ -53,7 +54,8 @@ export function decodeHandoff(payload: unknown): Handoff | null {
   } catch {
     return null;
   }
-  if (back.protocol !== 'https:') return null;
+  // http only from an arcade dev server on the developer's own network (localhost, tailnet, LAN).
+  if (back.protocol !== 'https:' && !(back.protocol === 'http:' && isDevHost(back.hostname))) return null;
   return { name, colour: d.colour.toLowerCase(), back: back.href };
 }
 

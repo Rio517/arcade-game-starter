@@ -20,19 +20,55 @@ export const ARCADE_USERS_KEY = 'arcade.users.v1';
 /** The family arcade's own addresses: a game under /<game id>/ here is the arcade's game even before the browser has any arcade data. */
 export const ARCADE_HOSTS = ['familyarcade.eu', 'www.familyarcade.eu'];
 
+/** A phone or laptop on the developer's own network: localhost, 127.0.0.1, the tailnet (100.64-127.x) or the LAN (192.168.x). */
+export function isDevHost(hostname: string): boolean {
+  if (hostname === 'localhost' || hostname === '127.0.0.1') return true;
+  const m = /^(\d{1,3})\.(\d{1,3})\.\d{1,3}\.\d{1,3}$/.exec(hostname);
+  if (!m) return false;
+  const [a, b] = [Number(m[1]), Number(m[2])];
+  return (a === 100 && b >= 64 && b <= 127) || (a === 192 && b === 168);
+}
+
+/** Where a dev server finds the arcade's dev server. */
+export interface DevArcade {
+  /** Full origin from VITE_ARCADE_ORIGIN, or empty for `http://<this hostname>:<port>`. */
+  origin?: string;
+  port: number;
+}
+
 export interface ArcadePlayerOptions {
   gameId: string;
   local: Pick<Storage, 'getItem'> | null;
   /** Remembers a trip to the player screen, so a screen that cannot answer never loops. */
   session?: Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> | null;
   now?: () => number;
-  location: { hostname?: string; pathname: string; search: string; replace(url: string): void };
+  location: { hostname?: string; origin?: string; pathname: string; search: string; replace(url: string): void };
+  /** Pass only from a dev build (`import.meta.env.DEV`); a production build passes nothing and never mentions a dev origin. */
+  dev?: DevArcade | null;
+  /** The check that the arcade's dev server answers; tests replace it. */
+  probe?: (origin: string) => Promise<boolean>;
+}
+
+const PROBE_MS = 1500;
+
+/** Does anything answer at `origin`? A no-cors fetch settles with an opaque reply from any server and fails when nothing listens. */
+async function answers(origin: string): Promise<boolean> {
+  const stop = new AbortController();
+  const timer = setTimeout(() => stop.abort(), PROBE_MS);
+  try {
+    await fetch(`${origin}/`, { mode: 'no-cors', signal: stop.signal });
+    return true;
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 const TRIP_KEY = 'arcade-kit:player-trip';
 const TRIP_WINDOW_MS = 15_000;
 
-export function createArcadePlayer({ gameId, local, session = null, now = Date.now, location }: ArcadePlayerOptions) {
+export function createArcadePlayer({ gameId, local, session = null, now = Date.now, location, dev = null, probe = answers }: ArcadePlayerOptions) {
   const read = (key: string): string | null => {
     try {
       return local?.getItem(key) ?? null;
@@ -54,6 +90,14 @@ export function createArcadePlayer({ gameId, local, session = null, now = Date.n
     } catch {
       /* nothing to forget */
     }
+  }
+
+  /** The arcade's dev server for this page, or null: not a dev build, not a dev host, or just back from a trip without a player. */
+  function devOrigin(): string | null {
+    const host = location.hostname ?? '';
+    if (!dev || ARCADE_HOSTS.includes(host) || !isDevHost(host)) return null;
+    if (now() - lastTrip() < TRIP_WINDOW_MS) return null;
+    return dev.origin || `http://${host}:${dev.port}`;
   }
 
   return {
@@ -83,15 +127,22 @@ export function createArcadePlayer({ gameId, local, session = null, now = Date.n
       return under && (read(ARCADE_USERS_KEY) !== null || ARCADE_HOSTS.includes(location.hostname ?? ''));
     },
 
+    /** On a dev server: does the arcade's dev server answer? Null when this is not a dev server (or it just sent the child back empty-handed). */
+    devArcade(): Promise<boolean> | null {
+      const origin = devOrigin();
+      return origin ? probe(origin) : null;
+    },
+
     /** Open the arcade's player screen; it brings the child back to this page. */
     openPlayerScreen(): void {
-      const back = location.pathname + location.search;
+      const origin = devOrigin();
+      const back = origin ? `${location.origin ?? `http://${location.hostname}`}${location.pathname}${location.search}` : location.pathname + location.search;
       try {
         session?.setItem(TRIP_KEY, String(now()));
       } catch {
         /* private mode: the guard is lost, the screen still works */
       }
-      location.replace(`/#/player?back=${encodeURIComponent(back)}`);
+      location.replace(origin ? `${origin}/#/player?back=${encodeURIComponent(back)}&game=${encodeURIComponent(gameId)}` : `/#/player?back=${encodeURIComponent(back)}`);
     },
   };
 }

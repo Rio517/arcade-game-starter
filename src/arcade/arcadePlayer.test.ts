@@ -106,4 +106,60 @@ describe('the kit on the arcade’s origin', () => {
     expect(replace).not.toHaveBeenCalled();
     expect(document.body.querySelector('input.ak-name')).not.toBeNull();
   });
+
+  describe('on a dev server', () => {
+    const dev = { port: 5189 };
+    function devSetup(hostname: string, reachable: boolean, devArg: typeof dev | null = dev) {
+      const replace = vi.fn();
+      const location = { hostname, origin: `http://${hostname}:4418`, pathname: '/', search: '?x=1', replace };
+      const probe = vi.fn(async () => reachable);
+      const ap = createArcadePlayer({ gameId: 'offroad', local: window.localStorage, session: window.sessionStorage, location, dev: devArg, probe });
+      const store = createStore({ gameId: 'offroad', local: window.localStorage, session: null, arcadePlayer: ap.player });
+      const ui = createUi({ getPlayer: store.player, setPlayer: store.setPlayer, together: {} as never, arcade: ap });
+      return { ap, replace, probe, ui };
+    }
+
+    it.each(['localhost', '127.0.0.1', '100.76.56.13', '192.168.1.20'])('goes to the arcade’s dev server from %s, with the full page as the way back', async (host) => {
+      const { ui, replace, probe } = devSetup(host, true);
+      void ui.ensurePlayer(document.body);
+      await vi.waitFor(() => expect(replace).toHaveBeenCalledTimes(1));
+      expect(probe).toHaveBeenCalledWith(`http://${host}:5189`);
+      expect(replace).toHaveBeenCalledWith(`http://${host}:5189/#/player?back=${encodeURIComponent(`http://${host}:4418/?x=1`)}&game=offroad`);
+    });
+
+    it('uses VITE_ARCADE_ORIGIN when one is given', async () => {
+      const { ui, replace } = devSetup('localhost', true, { origin: 'http://localhost:6000', port: 5189 } as never);
+      void ui.ensurePlayer(document.body);
+      await vi.waitFor(() => expect(replace).toHaveBeenCalled());
+      expect(String(replace.mock.calls[0][0])).toMatch(/^http:\/\/localhost:6000\/#\/player/);
+    });
+
+    it('shows today’s form when the arcade’s dev server does not answer', async () => {
+      const { ui, replace } = devSetup('localhost', false);
+      void ui.ensurePlayer(document.body);
+      await vi.waitFor(() => expect(document.body.querySelector('input.ak-name')).not.toBeNull());
+      expect(replace).not.toHaveBeenCalled();
+    });
+
+    it('shows the form straight away for a build (no dev option) and for a host that is not a dev host', () => {
+      for (const [host, devArg] of [['localhost', null], ['example.com', dev]] as const) {
+        document.body.innerHTML = '';
+        const { ui, replace, probe } = devSetup(host, true, devArg);
+        void ui.ensurePlayer(document.body);
+        expect(document.body.querySelector('input.ak-name')).not.toBeNull();
+        expect(probe).not.toHaveBeenCalled();
+        expect(replace).not.toHaveBeenCalled();
+      }
+    });
+
+    it('does not go round again when it came back with no player', async () => {
+      let t = 1_000_000;
+      const replace = vi.fn();
+      const location = { hostname: 'localhost', origin: 'http://localhost:4418', pathname: '/', search: '', replace };
+      const ap = createArcadePlayer({ gameId: 'offroad', local: window.localStorage, session: window.sessionStorage, now: () => t, location, dev, probe: async () => true });
+      ap.openPlayerScreen();
+      t += 2000;
+      expect(ap.devArcade()).toBeNull();
+    });
+  });
 });

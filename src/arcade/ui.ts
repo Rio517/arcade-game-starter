@@ -89,7 +89,7 @@ interface UiDeps {
   setPlayer: (p: Player) => void;
   together: Together;
   /** On the family arcade's origin the arcade's own player screen replaces this form. */
-  arcade?: { onArcade(): boolean; openPlayerScreen(): void };
+  arcade?: { onArcade(): boolean; openPlayerScreen(): void; devArcade?(): Promise<boolean> | null };
 }
 
 export function createUi({ getPlayer, setPlayer, together, arcade }: UiDeps): PlayerUi {
@@ -101,6 +101,13 @@ export function createUi({ getPlayer, setPlayer, together, arcade }: UiDeps): Pl
 
   function playerPicker(container: HTMLElement): Promise<Player> {
     if (arcade?.onArcade()) return viaArcade();
+    // On a dev server: the arcade's dev server, when one answers; otherwise the form below.
+    const dev = arcade?.devArcade?.();
+    if (dev) return dev.then((answers) => (answers ? viaArcade() : form(container)));
+    return form(container);
+  }
+
+  function form(container: HTMLElement): Promise<Player> {
     injectStyles();
     const existing = getPlayer();
     return new Promise((resolve) => {

@@ -39,6 +39,12 @@ describe('encodeHandoff / decodeHandoff', () => {
     expect(d).toEqual(good);
   });
 
+  it('accepts an http back only from a dev server on the developer’s own network', () => {
+    for (const back of ['http://localhost:5178/', 'http://127.0.0.1:5178/', 'http://100.76.56.13:5178/', 'http://192.168.1.20:5178/']) {
+      expect(decodeHandoff(encodeHandoff({ ...good, back }))?.back).toBe(back);
+    }
+  });
+
   it('accepts a name of exactly 20 characters', () => {
     expect(decodeHandoff(payloadOf({ ...good, v: 1, name: 'x'.repeat(20) }))).not.toBeNull();
   });
@@ -58,6 +64,7 @@ describe('encodeHandoff / decodeHandoff', () => {
       ['colour with bad digits', { ...base, colour: '#gg0000' }],
       ['colour that is not text', { ...base, colour: 123456 }],
       ['http back', { ...base, back: 'http://familyarcade.eu/' }],
+      ['http back to a public address with a dev port', { ...base, back: 'http://example.com:5178/' }],
       ['javascript back', { ...base, back: 'javascript:alert(1)' }],
       ['data back', { ...base, back: 'data:text/html,hi' }],
       ['back that is not a URL', { ...base, back: 'familyarcade' }],
