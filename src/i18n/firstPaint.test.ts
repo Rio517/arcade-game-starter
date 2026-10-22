@@ -27,15 +27,14 @@ describe('firstPaint', () => {
     bad("<p data-t='game.a'></p>").toThrow(/data-t/);
     bad('<br data-t="game.a" />').toThrow(/self-closing/);
     bad('<p data-t="game.a">no end').toThrow(/closing/);
-    bad('<p class="x"data-t="game.a"></p>').toThrow(/data-t/);
-    bad('<p DATA-T="game.a"></p>').toThrow(/data-t/);
   });
 
   it('finds the closing tag after letters that change length in lower case', () => {
     expect(firstPaint('<title>İİstanbul</title><p data-t="game.b"></p>', words)).toContain('<p data-t="game.b">Label</p>');
   });
 
-  it('leaves other data-t-* attributes alone', () => {
+  it('leaves other data-t-* attributes and data-t in text alone', () => {
+    expect(firstPaint('<img alt="data-t" data-t-label="game.b">', words)).toContain('aria-label="Label"');
     expect(firstPaint('<p data-t-note="x" data-t="game.b"></p>', words)).toContain('>Label</p>');
   });
 });

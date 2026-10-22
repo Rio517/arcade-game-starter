@@ -10,7 +10,7 @@ const escape = (text: string): string => text.replace(/&/g, '&amp;').replace(/</
 
 const SKIPPED = /<!--[\s\S]*?-->|<(script|style)\b[\s\S]*?<\/\1\s*>/gi;
 const TAG = /<([a-zA-Z][\w-]*)((?:\s+[^\s"'<>/=]+(?:\s*=\s*(?:"[^"]*"|'[^']*'|[^\s"'=<>`]+))?)*)\s*(\/?)>/g;
-const ATTRIBUTE = /(?<=[\s"'])data-t(?:-label)?(?![\w-])/gi;
+const ATTRIBUTE = /\sdata-t(?:-label)?(?![\w-])/g;
 
 export function firstPaint(html: string, messages: Record<string, string>): string {
   const word = (key: string, element: string): string => {
