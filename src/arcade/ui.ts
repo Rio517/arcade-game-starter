@@ -7,6 +7,7 @@
  * ever put on screen with textContent, never as HTML.
  */
 
+import { PROBE_MS } from './arcadePlayer';
 import { cleanName, type Player } from './player';
 import type { Person, Room, Together } from './together';
 
@@ -73,6 +74,8 @@ export interface PlayerUi {
   playerPicker(container: HTMLElement): Promise<Player>;
   ensurePlayer(container: HTMLElement): Promise<Player>;
   togetherPanel(container: HTMLElement): TogetherPanel;
+  /** Drop the kit's window listener. A game never needs this; tests do. */
+  dispose(): void;
 }
 
 export interface TogetherPanel {
@@ -88,100 +91,224 @@ interface UiDeps {
   getPlayer: () => Player | null;
   setPlayer: (p: Player) => void;
   together: Together;
-  /** On the family arcade's origin the arcade's own player screen replaces this form. */
-  arcade?: { onArcade(): boolean; openPlayerScreen(): void; devArcade?(): Promise<boolean> | null };
+  /** On the family arcade's origin (and from a dev server when the arcade's dev server answers) the arcade's own player screen replaces this form. */
+  arcade?: ArcadeScreen;
 }
 
+/** What the player card needs of the arcade (`createArcadePlayer`). */
+export interface ArcadeScreen {
+  onArcade(): boolean;
+  /** Leave for the arcade's player screen; it brings the child back to this page. */
+  openPlayerScreen(origin?: string | null): void;
+  /** On a dev server, a probe for the arcade's dev server: its origin, or null when nothing answers. Null (no promise) off a dev server. */
+  devArcade(): Promise<string | null> | null;
+  /** This page set off for the player screen less than 15 s ago. */
+  tripPending(): boolean;
+  /** Forget that trip: the child is back (a handoff, or a swipe back that restored this page from the bfcache). */
+  forgetTrip(): void;
+}
+
+/**
+ * Where a press of Who is. Each step is judged by a fact that cannot go stale (see `alive`), never by a flag that
+ * something has to remember to clear: a probe settles, a card is on the page or not, a trip is inside its window or not.
+ */
+type Step = { kind: 'probe' } | { kind: 'form'; overlay: HTMLElement; close(): void } | { kind: 'trip' };
+
+/**
+ * One press of Who and every press that joined it: the one promise all of them get. A form's or a probe's promise
+ * settles with the player picked; a trip's is meant to end with the page (the arcade's screen brings the child back to
+ * a fresh load), and when the page stays or comes back instead, it settles with the next pick's answer.
+ */
+interface PickState {
+  /** Null only when the form itself could not be built (the kit's own fault); callers see `Promise<Player>`. */
+  promise: Promise<Player | null>;
+  settle(p: Player | null | PromiseLike<Player | null>): void;
+  step: Step;
+}
+
+/** A probe may take `PROBE_MS`; this much later the kit stops waiting for one that never settles. */
+const PROBE_MARGIN_MS = 500;
+
 export function createUi({ getPlayer, setPlayer, together, arcade }: UiDeps): PlayerUi {
-  /** Leave for the arcade's player screen. The page is gone, so the promise never settles. */
-  function viaArcade(): Promise<Player> {
-    arcade!.openPlayerScreen();
-    return new Promise<Player>(() => {});
+  /** The pick on its way, or null. */
+  let current: PickState | null = null;
+
+  /** Is the pick still going? A probe always (it becomes a form or a trip); a form while its card is on the page; a trip inside the arcade's 15 s window. */
+  function alive(pick: PickState): boolean {
+    const step = pick.step;
+    if (step.kind === 'probe') return true;
+    if (step.kind === 'form') return step.overlay.isConnected;
+    return arcade?.tripPending() ?? false;
   }
 
+  /**
+   * Who was pressed. While a pick is alive every press gets its promise: one probe, one card, one trip, and one answer
+   * for all of them. A pick that ended without an answer (a trip that never left the page, a card the page took down)
+   * is replaced, and its callers get the new pick's answer: no promise here is left without a way to settle.
+   */
   function playerPicker(container: HTMLElement): Promise<Player> {
-    if (arcade?.onArcade()) return viaArcade();
-    // On a dev server: the arcade's dev server, when one answers; otherwise the form below.
-    const dev = arcade?.devArcade?.();
-    if (dev) return dev.then((answers) => (answers ? viaArcade() : form(container)));
-    return form(container);
+    if (current && alive(current)) return current.promise as Promise<Player>;
+    const stale = current;
+    if (stale?.step.kind === 'form') stale.step.close(); // its card is gone already; its keydown listener goes too
+    let settle!: PickState['settle'];
+    const promise = new Promise<Player | null>((resolve) => {
+      settle = resolve;
+    });
+    const pick: PickState = { promise, settle, step: { kind: 'probe' } };
+    current = pick;
+    void promise.then(() => {
+      if (current === pick) current = null;
+    });
+    stale?.settle(promise);
+    void begin(container, pick);
+    return promise as Promise<Player>;
   }
 
-  function form(container: HTMLElement): Promise<Player> {
+  /** The probe's answer, or null when none has come `PROBE_MARGIN_MS` after its own time: an arcade whose probe never settles cannot keep a pick alive. */
+  function expires(probe: Promise<string | null>): Promise<string | null> {
+    let timer: ReturnType<typeof setTimeout>;
+    const late = new Promise<null>((resolve) => {
+      timer = setTimeout(() => resolve(null), PROBE_MS + PROBE_MARGIN_MS);
+    });
+    return Promise.race([probe, late]).finally(() => clearTimeout(timer));
+  }
+
+  /**
+   * The pick's start: one chain, one failure path. A throw anywhere before the form (the arcade, the probe, the
+   * navigation) ends in exactly one form. A throw from the form itself ends the pick with null, so the next Who starts
+   * over. Nothing here is left to reject.
+   */
+  async function begin(container: HTMLElement, pick: PickState): Promise<void> {
+    let formed = false;
+    try {
+      if (arcade?.onArcade()) return trip(pick, null);
+      // on a dev server: the arcade's dev server when one answers, otherwise the form; a probe that fails or hangs is a no
+      const probe = arcade?.devArcade();
+      const origin = probe ? await expires(probe) : null;
+      if (origin) return trip(pick, origin);
+      formed = true;
+      form(container, pick);
+    } catch {
+      if (!formed) {
+        formed = true;
+        try {
+          form(container, pick);
+          return;
+        } catch {
+          /* the form itself threw: below */
+        }
+      }
+      // the form could not be built (the kit's own fault): take down what it made, and end the pick
+      if (pick.step.kind === 'form') pick.step.close();
+      if (current === pick) current = null;
+      pick.settle(null);
+    }
+  }
+
+  /** Leave for the arcade's player screen (from a dev server, at the origin that answered). The page is going, so the promise waits: for the unload, or for the next Who if it never leaves. */
+  function trip(pick: PickState, origin: string | null): void {
+    pick.step = { kind: 'trip' };
+    arcade!.openPlayerScreen(origin);
+  }
+
+  // If a swipe back from the arcade's player screen ever restores this document from the bfcache with its trip still
+  // on its way: forget the trip, so the next Who starts fresh (the form, or a new trip on the arcade), and when the child
+  // picked a player meanwhile, that answers the pick now; otherwise the next Who's answer does (the pick is no longer
+  // alive). Whether that restore happens is not known: openPlayerScreen leaves with location.replace, and a browser may
+  // never bring this document back. The handler costs nothing, so it stays; it is not a promise about any device.
+  const onPageShow = (e: Event) => {
+    if (!(e as PageTransitionEvent).persisted) return;
+    arcade?.forgetTrip();
+    if (current?.step.kind !== 'trip') return;
+    const p = getPlayer();
+    if (p) current.settle(p);
+  };
+  if (typeof window !== 'undefined') window.addEventListener('pageshow', onPageShow);
+
+  function dispose(): void {
+    if (typeof window !== 'undefined') window.removeEventListener('pageshow', onPageShow);
+  }
+
+  function form(container: HTMLElement, pick: PickState): void {
     injectStyles();
     const existing = getPlayer();
-    return new Promise((resolve) => {
-      const id = ++uid;
-      let colour = existing?.colour ?? PLAYER_COLOURS[Math.floor(Math.random() * PLAYER_COLOURS.length)];
-      const input = el('input', { class: 'ak-input ak-name', id: `ak-name-${id}`, type: 'text', maxlength: '20', autocomplete: 'off', autocapitalize: 'words', spellcheck: 'false' });
-      input.value = existing?.name ?? '';
-      const error = el('div', { class: 'ak-error', role: 'alert', hidden: '' });
-      const swatches = el('div', { class: 'ak-swatches', role: 'radiogroup', 'aria-label': 'Colour' });
-      const buttons = PLAYER_COLOURS.map((c, i) => {
-        const b = el('button', { class: 'ak-swatch', type: 'button', role: 'radio', 'aria-label': `Colour ${i + 1}` });
-        b.style.background = c;
-        b.addEventListener('click', () => {
-          colour = c;
-          paint();
-        });
-        swatches.append(b);
-        return b;
+    const id = ++uid;
+    let colour = existing?.colour ?? PLAYER_COLOURS[Math.floor(Math.random() * PLAYER_COLOURS.length)];
+    const input = el('input', { class: 'ak-input ak-name', id: `ak-name-${id}`, type: 'text', maxlength: '20', autocomplete: 'off', autocapitalize: 'words', spellcheck: 'false' });
+    input.value = existing?.name ?? '';
+    const error = el('div', { class: 'ak-error', role: 'alert', hidden: '' });
+    const swatches = el('div', { class: 'ak-swatches', role: 'radiogroup', 'aria-label': 'Colour' });
+    const buttons = PLAYER_COLOURS.map((c, i) => {
+      const b = el('button', { class: 'ak-swatch', type: 'button', role: 'radio', 'aria-label': `Colour ${i + 1}` });
+      b.style.background = c;
+      b.addEventListener('click', () => {
+        colour = c;
+        paint();
       });
-      const paint = () =>
-        buttons.forEach((b, i) => {
-          const on = PLAYER_COLOURS[i] === colour;
-          b.setAttribute('aria-checked', String(on));
-          b.textContent = on ? '✓' : '';
-        });
-      paint();
-
-      const go = el('button', { class: 'ak-btn ak-primary', type: 'button' }, "Let's play");
-      const card = el('div', { class: 'ak-card', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': `ak-title-${id}` });
-      card.append(el('h2', { id: `ak-title-${id}` }, existing ? 'Player' : 'New player'), el('label', { for: `ak-name-${id}` }, 'Name'), input, el('label', {}, 'Colour'), swatches, error, go);
-      const overlay = el('div', { class: 'ak-overlay' }, card);
-
-      const done = (p: Player) => {
-        document.removeEventListener('keydown', onKey, true);
-        overlay.remove();
-        resolve(p);
-      };
-      const submit = () => {
-        const name = cleanName(input.value);
-        if (!name) {
-          error.textContent = 'Type a name with 1 to 20 letters.';
-          error.hidden = false;
-          input.focus();
-          return;
-        }
-        const p = { name, colour };
-        setPlayer(p);
-        done(p);
-      };
-      const onKey = (e: KeyboardEvent) => {
-        if (e.key === 'Escape' && existing) {
-          e.preventDefault();
-          done(existing);
-        } else if (e.key === 'Enter' && document.activeElement === input) {
-          e.preventDefault();
-          submit();
-        } else if (e.key === 'Tab') {
-          const items = [...card.querySelectorAll<HTMLElement>('input,button')];
-          const first = items[0];
-          const last = items[items.length - 1];
-          if (e.shiftKey && document.activeElement === first) {
-            e.preventDefault();
-            last.focus();
-          } else if (!e.shiftKey && document.activeElement === last) {
-            e.preventDefault();
-            first.focus();
-          }
-        }
-      };
-      go.addEventListener('click', submit);
-      document.addEventListener('keydown', onKey, true);
-      container.append(overlay);
-      input.focus();
+      swatches.append(b);
+      return b;
     });
+    const paint = () =>
+      buttons.forEach((b, i) => {
+        const on = PLAYER_COLOURS[i] === colour;
+        b.setAttribute('aria-checked', String(on));
+        b.textContent = on ? '✓' : '';
+      });
+    paint();
+
+    const go = el('button', { class: 'ak-btn ak-primary', type: 'button' }, "Let's play");
+    const card = el('div', { class: 'ak-card', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': `ak-title-${id}` });
+    card.append(el('h2', { id: `ak-title-${id}` }, existing ? 'Player' : 'New player'), el('label', { for: `ak-name-${id}` }, 'Name'), input, el('label', {}, 'Colour'), swatches, error, go);
+    const overlay = el('div', { class: 'ak-overlay' }, card);
+
+    /** Take the card down and stop listening. */
+    const close = () => {
+      document.removeEventListener('keydown', onKey, true);
+      overlay.remove();
+    };
+    const done = (p: Player) => {
+      close();
+      pick.settle(p);
+    };
+    const submit = () => {
+      const name = cleanName(input.value);
+      if (!name) {
+        error.textContent = 'Type a name with 1 to 20 letters.';
+        error.hidden = false;
+        input.focus();
+        return;
+      }
+      const p = { name, colour };
+      setPlayer(p);
+      done(p);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      // the page took the card down itself (a re-render): this listener is stale, and the next Who answers the pick
+      if (!overlay.isConnected) return close();
+      if (e.key === 'Escape' && existing) {
+        e.preventDefault();
+        done(existing);
+      } else if (e.key === 'Enter' && document.activeElement === input) {
+        e.preventDefault();
+        submit();
+      } else if (e.key === 'Tab') {
+        const items = [...card.querySelectorAll<HTMLElement>('input,button')];
+        const first = items[0];
+        const last = items[items.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    };
+    go.addEventListener('click', submit);
+    document.addEventListener('keydown', onKey, true);
+    pick.step = { kind: 'form', overlay, close };
+    container.append(overlay);
+    input.focus();
   }
 
   function ensurePlayer(container: HTMLElement): Promise<Player> {
@@ -375,5 +502,5 @@ export function createUi({ getPlayer, setPlayer, together, arcade }: UiDeps): Pl
     };
   }
 
-  return { playerPicker, ensurePlayer, togetherPanel };
+  return { playerPicker, ensurePlayer, togetherPanel, dispose };
 }

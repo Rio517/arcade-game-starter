@@ -39,10 +39,24 @@ describe('encodeHandoff / decodeHandoff', () => {
     expect(d).toEqual(good);
   });
 
-  it('accepts an http back only from a dev server on the developer’s own network', () => {
-    for (const back of ['http://localhost:5178/', 'http://127.0.0.1:5178/', 'http://100.76.56.13:5178/', 'http://192.168.1.20:5178/']) {
-      expect(decodeHandoff(encodeHandoff({ ...good, back }))?.back).toBe(back);
+  it('accepts an http back only in a dev build, from a dev server on the developer’s own network', () => {
+    for (const back of ['http://localhost:5178/', 'http://127.0.0.1:5178/', 'http://100.76.56.13:5178/', 'http://192.168.1.20:5178/', 'http://[::1]:5178/', 'http://10.0.0.5:5178/', 'http://172.20.1.1:5178/', 'http://mac.local:5178/', 'http://mac.tail1234.ts.net:5178/']) {
+      expect(decodeHandoff(encodeHandoff({ ...good, back }), { dev: true })?.back, back).toBe(back);
     }
+  });
+
+  it('refuses an http back in a production build, as spec v1 says', () => {
+    for (const back of ['http://192.168.1.1/x', 'http://localhost:5178/', 'http://100.76.56.13:5178/']) {
+      expect(decodeHandoff(encodeHandoff({ ...good, back })), back).toBeNull();
+      expect(decodeHandoff(encodeHandoff({ ...good, back }), { dev: false }), back).toBeNull();
+    }
+    expect(decodeHandoff(encodeHandoff(good))).toEqual(good);
+  });
+
+  it('in a dev build accepts the host of VITE_ARCADE_ORIGIN too, and still refuses the rest', () => {
+    const back = 'http://arcade.example.test:5189/';
+    expect(decodeHandoff(encodeHandoff({ ...good, back }), { dev: true })).toBeNull();
+    expect(decodeHandoff(encodeHandoff({ ...good, back }), { dev: true, arcadeOrigin: 'http://arcade.example.test:5189' })?.back).toBe(back);
   });
 
   it('accepts a name of exactly 20 characters', () => {

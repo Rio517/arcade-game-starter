@@ -15,8 +15,16 @@ export interface Handoff {
   name: string;
   /** '#rrggbb', lower case */
   colour: string;
-  /** An https: address (http: for a dev server on the developer's network) the "back to the arcade" button goes to. */
+  /** An https: address (http: for a dev server on the developer's network, in a dev build only) the "back to the arcade" button goes to. */
   back: string;
+}
+
+/** What a build knows about where it runs. The default is spec v1: https back addresses only. */
+export interface HandoffOptions {
+  /** True for a dev build (`import.meta.env.DEV`): an http back address on a dev host (see `isDevHost`) is accepted too. */
+  dev?: boolean;
+  /** VITE_ARCADE_ORIGIN, whose host counts as a dev host. */
+  arcadeOrigin?: string;
 }
 
 export const BACK_KEY = 'arcade-kit:back';
@@ -30,7 +38,7 @@ export function encodeHandoff(h: Handoff): string {
 }
 
 /** The handoff in `payload`, or null if it is not exactly what spec v1 allows. */
-export function decodeHandoff(payload: unknown): Handoff | null {
+export function decodeHandoff(payload: unknown, opts: HandoffOptions = {}): Handoff | null {
   if (typeof payload !== 'string' || payload.length === 0 || payload.length > 2048) return null;
   if (!/^[A-Za-z0-9_-]+$/.test(payload) || payload.length % 4 === 1) return null;
   let data: unknown;
@@ -54,8 +62,8 @@ export function decodeHandoff(payload: unknown): Handoff | null {
   } catch {
     return null;
   }
-  // http only from an arcade dev server on the developer's own network (localhost, tailnet, LAN).
-  if (back.protocol !== 'https:' && !(back.protocol === 'http:' && isDevHost(back.hostname))) return null;
+  // http only in a dev build, from an arcade dev server on the developer's own network (localhost, tailnet, LAN).
+  if (back.protocol !== 'https:' && !(opts.dev && back.protocol === 'http:' && isDevHost(back.hostname, opts.arcadeOrigin))) return null;
   return { name, colour: d.colour.toLowerCase(), back: back.href };
 }
 
@@ -70,10 +78,10 @@ interface HandoffWindow {
  * handoff, or null if there was none or it was invalid (invalid ones are
  * ignored, and are removed from the address bar too).
  */
-export function consumeHandoff(win: HandoffWindow, session: Pick<Storage, 'setItem'> | null): Handoff | null {
+export function consumeHandoff(win: HandoffWindow, session: Pick<Storage, 'setItem'> | null, opts: HandoffOptions = {}): Handoff | null {
   const params = new URLSearchParams(win.location.hash.replace(/^#/, ''));
   if (!params.has('arcade')) return null;
-  const handoff = decodeHandoff(params.get('arcade'));
+  const handoff = decodeHandoff(params.get('arcade'), opts);
   params.delete('arcade');
   const rest = params.toString();
   try {

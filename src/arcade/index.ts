@@ -62,13 +62,15 @@ function safe<T>(get: () => T): T | null {
 }
 
 const local = safe(() => window.localStorage);
+// Dev builds only: a production build drops this whole object (and with it VITE_ARCADE_ORIGIN) at compile time.
+const devOptions = import.meta.env.DEV ? { dev: true, arcadeOrigin: import.meta.env.VITE_ARCADE_ORIGIN as string | undefined } : undefined;
 const arcadePlayer = createArcadePlayer({
   gameId,
   local,
   session: safe(() => window.sessionStorage),
   location: window.location,
   // A dev server (npm run dev) sends the player to the arcade's dev server (npm run dev:player there); a build has none of this.
-  dev: import.meta.env.DEV ? { origin: import.meta.env.VITE_ARCADE_ORIGIN, port: 5189 } : null,
+  dev: devOptions ? { origin: devOptions.arcadeOrigin, port: 5189 } : null,
 });
 
 const store = createStore({
@@ -79,8 +81,12 @@ const store = createStore({
 });
 
 // Opened from the arcade? Pick up who is playing, then tidy the address bar.
-const handoff = consumeHandoff(window, safe(() => window.sessionStorage));
-if (handoff) store.setPlayer(cleanPlayer(handoff) as Player);
+const handoff = consumeHandoff(window, safe(() => window.sessionStorage), devOptions);
+if (handoff) {
+  store.setPlayer(cleanPlayer(handoff) as Player);
+  // back from the player screen with a player: the next press of Who may go there again
+  arcadePlayer.forgetTrip();
+}
 
 const together = createTogether({ gameId, getPlayer: store.player });
 const ui = createUi({ getPlayer: store.player, setPlayer: store.setPlayer, together, arcade: arcadePlayer });
