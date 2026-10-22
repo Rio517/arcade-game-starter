@@ -1,0 +1,14 @@
+{
+  "game.page.back": "← Arcade",
+  "game.page.backLabel": "Back to the arcade",
+  "game.page.lead": "Ready for your idea.",
+  "game.page.ideaTitle": "Game idea",
+  "game.page.ideaBody": "Ask your AI helper to make your game here.",
+  "game.page.example": "Example",
+  "game.page.quote": "Make a game where you are a dragon collecting gems in the clouds, for 1 to 4 players. Keep play together working.",
+  "game.start.playingAs": "Playing as {name}",
+  "game.start.playingAsChange": "{playing}. Change player",
+  "game.start.leaveFirst": "Leave the room to change who is playing",
+  "game.start.alone": "Just you so far. Friends can join with the code.",
+  "game.start.here": "{count} people are here."
+}

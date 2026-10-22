@@ -31,6 +31,9 @@ Write for a child of about 8 to 12, often read aloud by a grown-up. Use short se
 - `src/game/draw.ts` paints a world on a `<canvas>` (an empty stub until there is a game).
 - `src/main.ts` wires it together: page, keyboard and touch, play together. Today it is only the start page (title, who is playing, Play together, a card).
 - `public/arcade.json` names the game for the arcade (`id`, `title`, `players`, `colour`, `blurb`, `facts`). The `id` must stay lower-case letters, numbers and dashes; changing it makes the game forget its saved data. White text on `colour` must keep a 4.5:1 contrast (a test checks it).
+- `src/i18n/messages/en.json` holds every word the game shows: the `game.*` keys, one flat object. Keys are letters and digits in dotted segments (`game.start.here`). Read each with `t('game.<screen>.<name>')` (from `./i18n/t`); the words in `index.html` are `data-t="game.…"` (text) and `data-t-label="game.…"` (aria-label). Put new words in the file, not in the code, and add a key for each new screen word. Use `{name}` slots only (no plurals or other message syntax: use two messages). Never change or measure what `t()` returns (no `toUpperCase`, `split`, `length`, `includes`): use CSS `text-transform` or work on the data.
+- The kit's words are the kit's own: `src/arcade/words.ts` (`kit.*` keys), copied with the kit. Do not edit them there. To change one for your game, add its key with your text to `en.json` (for example `"kit.together.leave": "Go back"`): `main.ts` hands every `kit.*` entry there to the kit.
+- When a word leaves the page, delete its key from `en.json` too: the catalog test fails on a key that nothing uses.
 - Plain TypeScript, DOM and canvas. No framework. If the child wants 3D, `npm install three` is fine; keep it bundled like everything else.
 
 ## Your first game

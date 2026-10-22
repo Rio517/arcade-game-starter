@@ -14,6 +14,7 @@
  */
 
 import Peer, { type DataConnection } from 'peerjs';
+import { kt } from './words';
 import { CONNECTION_SERVICE, DIAL_TIMEOUT_MS, type ConnStatus, type ConnectionConfig } from './peer';
 
 export interface HostHandlers<TMessage> {
@@ -156,7 +157,7 @@ export class GameHost<TMessage> {
 
     peer.on('disconnected', () => {
       if (this.destroyed) return;
-      this.handlers.onStatus('reconnecting', 'Broker link dropped');
+      this.handlers.onStatus('reconnecting', kt('kit.connection.brokerDropped'));
       try {
         peer.reconnect();
       } catch {
@@ -172,7 +173,7 @@ export class GameHost<TMessage> {
         // rather than ending a remembered party on a screen nobody opened;
         // a genuinely taken code still errors once the deadline passes.
         if (Date.now() < this.hostDeadline) {
-          this.handlers.onStatus('reconnecting', 'Reclaiming your code…');
+          this.handlers.onStatus('reconnecting', kt('kit.connection.reclaiming'));
           try {
             peer.destroy();
           } catch {
@@ -184,16 +185,16 @@ export class GameHost<TMessage> {
           }, RETRY_MS);
           return;
         }
-        this.handlers.onStatus('error', 'That code is already in use — start a new game.');
+        this.handlers.onStatus('error', kt('kit.connection.codeInUse'));
         return;
       }
       if (err.type === 'network' || err.type === 'server-error' || err.type === 'socket-error') {
-        this.handlers.onStatus('reconnecting', 'Network hiccup — retrying…');
+        this.handlers.onStatus('reconnecting', kt('kit.connection.hiccup'));
         return;
       }
       // A failed guest dial (peer-unavailable and the like) is theirs to retry.
       if (err.type === 'peer-unavailable') return;
-      this.handlers.onStatus('error', err.message ?? 'Connection error');
+      this.handlers.onStatus('error', err.message ?? kt('kit.connection.failed'));
     });
   }
 

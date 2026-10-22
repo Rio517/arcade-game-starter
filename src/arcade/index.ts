@@ -5,6 +5,11 @@
  * folder. Do not edit the other files in src/arcade/; build your game in
  * src/game/ and src/main.ts.
  *
+ * This kit is no longer byte-for-byte Offroad v1.6.2: the starter is now the kit's source, and Offroad and Coin Corner take it from here.
+ *
+ * The kit's words are in words.ts (`kit.*` keys) and are copied with the kit. To change some, pass a catalog:
+ *   arcade.words.use({ 'kit.together.leave': 'Go back' });   // only keys listed in words.ts
+ *
  *   import { arcade } from './arcade';
  *
  *   // Who is playing? A name and a colour. null until somebody picked one.
@@ -42,10 +47,12 @@ import { cleanPlayer, type Player } from './player';
 import { createStore } from './storage';
 import { createTogether } from './together';
 import { createUi } from './ui';
+import { formatSlots, useKitWords } from './words';
 
 export type { Player } from './player';
 export type { Person, Room, GameMessage, TogetherStatus, Together } from './together';
 export type { TogetherPanel } from './ui';
+export type { KitKey } from './words';
 export { encodeHandoff, decodeHandoff };
 
 const gameId: string = manifest.id;
@@ -113,4 +120,6 @@ export const arcade = {
   together,
   /** Small ready-made screens: `ensurePlayer`, `playerPicker`, `togetherPanel`. */
   ui,
+  /** The kit's words: `use(catalog)` changes some of its English (only keys listed in words.ts; calls add up), and `format(message, values)` fills `{name}` slots. */
+  words: { use: useKitWords, format: formatSlots },
 };

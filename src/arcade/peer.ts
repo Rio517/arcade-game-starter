@@ -20,6 +20,7 @@
  */
 
 import Peer, { type DataConnection, type PeerOptions } from 'peerjs';
+import { kt } from './words';
 
 export type ConnStatus =
   | 'idle'
@@ -187,7 +188,7 @@ export class GameConnection<TMessage> {
 
     peer.on('disconnected', () => {
       if (this.destroyed) return;
-      this.handlers.onStatus('reconnecting', 'Broker link dropped');
+      this.handlers.onStatus('reconnecting', kt('kit.connection.brokerDropped'));
       try {
         peer.reconnect();
       } catch {
@@ -208,7 +209,7 @@ export class GameConnection<TMessage> {
         // rather than ending a remembered party on a screen nobody opened;
         // a genuinely taken code still errors once the deadline passes.
         if (this.role === 'host' && Date.now() < this.hostDeadline) {
-          this.handlers.onStatus('reconnecting', 'Reclaiming your code…');
+          this.handlers.onStatus('reconnecting', kt('kit.connection.reclaiming'));
           try {
             peer.destroy();
           } catch {
@@ -220,21 +221,21 @@ export class GameConnection<TMessage> {
           }, DIAL_RETRY_MS);
           return;
         }
-        this.handlers.onStatus('error', 'That code is already in use — start a new game.');
+        this.handlers.onStatus('error', kt('kit.connection.codeInUse'));
         return;
       }
       if (err.type === 'network' || err.type === 'server-error' || err.type === 'socket-error') {
-        this.handlers.onStatus('reconnecting', 'Network hiccup — retrying…');
+        this.handlers.onStatus('reconnecting', kt('kit.connection.hiccup'));
         return;
       }
-      this.handlers.onStatus('error', err.message ?? 'Connection error');
+      this.handlers.onStatus('error', err.message ?? kt('kit.connection.failed'));
     });
   }
 
   private dial(): void {
     if (this.destroyed || !this.peer) return;
     if (Date.now() > this.dialDeadline) {
-      this.handlers.onStatus('error', 'Could not reach that game. Check the code and that the host is online.');
+      this.handlers.onStatus('error', kt('kit.connection.unreachable'));
       return;
     }
     const conn = this.peer.connect(this.peerIdForCode(this.code), { reliable: true });
@@ -285,7 +286,7 @@ export class GameConnection<TMessage> {
 
     conn.on('close', () => {
       if (!isCurrent()) return;
-      this.handlers.onStatus('reconnecting', 'Opponent link closed');
+      this.handlers.onStatus('reconnecting', kt('kit.connection.linkClosed'));
       if (this.role === 'guest') {
         this.dialDeadline = Date.now() + this.dialTimeoutMs;
         this.scheduleDial();

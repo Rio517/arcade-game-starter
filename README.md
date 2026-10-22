@@ -123,6 +123,19 @@ Claude knows these; it helps if the grown-up does too.
 - **Calm when asked**: if a device is set to reduce motion, no shaking or
   flashing.
 
+## The words in your game
+
+Your game's words live in one file, `src/i18n/messages/en.json`, and
+the code reads each one with `t('game.<screen>.<name>')` (keys are letters and
+digits in dotted segments). The words on the start page are in the same file.
+New words go in that file, not into the code. Nothing in the code changes or
+measures what `t()` gives back: use CSS for capital letters and the data for
+lengths. The arcade kit (the player card and Play together) keeps its own words
+in `src/arcade/words.ts`, which travels with the kit.
+
+To change a word of the player card or Play together, add its `kit.*` key with
+your text to `en.json`; the keys are listed in `src/arcade/words.ts`.
+
 ## For grown-ups
 
 - **What the game keeps**: Players and saves stay in the browser on each
