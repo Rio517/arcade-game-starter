@@ -13,37 +13,22 @@
 
 import './style.css';
 import manifest from '../public/arcade.json';
-import { arcade, type Player, type Room } from './arcade';
+import { arcade, DEFAULT_PLAYER, type Player, type Room } from './arcade';
 import { createWorld, step, type Inputs, type World } from './game/rules';
-import { hasWord, kitOverrides, t, type GameKey } from './i18n/t';
+import { kitOverrides, t } from './i18n/t';
 
 const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
 const whoButton = $<HTMLButtonElement>('who');
 const backButton = $<HTMLButtonElement>('back');
 const hereLine = $('here');
 
-// The page holds its English as the first paint; data-t="game.…" is replaced by the catalog's text and
-// data-t-label="game.…" sets the aria-label. A key the catalog lacks keeps the page's text (and warns in dev).
-function sayPage(attribute: 'data-t' | 'data-t-label'): void {
-  for (const node of document.querySelectorAll<HTMLElement>(`[${attribute}]`)) {
-    const key = node.getAttribute(attribute) ?? '';
-    if (!hasWord(key)) {
-      if (import.meta.env.DEV) console.warn(`index.html: "${key}" is not in src/i18n/messages/en.json; the page keeps its own text`);
-      continue;
-    }
-    if (attribute === 'data-t') node.textContent = t(key as GameKey);
-    else node.setAttribute('aria-label', t(key as GameKey));
-  }
-}
-sayPage('data-t');
-sayPage('data-t-label');
 // The kit's own words come with the kit; this hands it any `kit.*` entries the catalog holds.
 arcade.words.use(kitOverrides);
 
 $('title').textContent = manifest.title;
 document.title = manifest.title;
 
-let me: Player = { name: 'Player', colour: '#3d6bd6' };
+let me: Player = { ...DEFAULT_PLAYER };
 let world: World = createWorld((Math.random() * 2 ** 32) >>> 0);
 
 /** Run the example rules once, with one empty input per person here. */

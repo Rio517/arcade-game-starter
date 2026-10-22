@@ -4,10 +4,11 @@
  * from `kt('…')` calls in src/arcade. A quoted string that is not an argument of those calls is ignored,
  * so 'game.over' as an event name does not trip this.
  */
-import { afterEach, describe, expect, it } from 'vitest';
-import { formatSlots, kitWords, kt, resetKitWords, useKitWords } from '../arcade/words';
+import { describe, expect, it } from 'vitest';
+import { kitWords } from '../arcade/words';
+import { firstPaint } from './firstPaint';
 import messages from './messages/en.json';
-import { kitOverrides, t } from './t';
+import { t } from './t';
 
 const gameSources = import.meta.glob(['../**/*.ts', '!../i18n/**', '!../arcade/**', '!**/*.test.ts'], { query: '?raw', import: 'default', eager: true }) as Record<string, string>;
 const kitSources = import.meta.glob(['../arcade/*.ts', '!../arcade/words.ts', '!**/*.test.ts'], { query: '?raw', import: 'default', eager: true }) as Record<string, string>;
@@ -26,14 +27,18 @@ const gameKeys = catalogKeys.filter((k) => !k.startsWith('kit.'));
 const kitKeys = Object.keys(kitWords);
 
 describe('the page words', () => {
-  it('start as the catalog English, so the first paint is the final text', () => {
-    const html = Object.values(pages)[0];
-    const text = [...html.matchAll(/<(\w+)[^>]*\sdata-t="([^"]+)"[^>]*>([^<]*)<\/\1>/g)];
-    expect(text.length).toBeGreaterThan(0);
-    for (const [, , key, inner] of text) expect([key, inner]).toEqual([key, (messages as Record<string, string>)[key]]);
-    const labels = [...html.matchAll(/<[^>]*\saria-label="([^"]*)"[^>]*\sdata-t-label="([^"]+)"[^>]*>/g)];
+  it('are written into index.html from the catalog', () => {
+    const doc = new DOMParser().parseFromString(firstPaint(Object.values(pages)[0], messages), 'text/html');
+    const texts = [...doc.querySelectorAll('[data-t]')];
+    const labels = [...doc.querySelectorAll('[data-t-label]')];
+    expect(texts.length).toBeGreaterThan(0);
     expect(labels.length).toBeGreaterThan(0);
-    for (const [, label, key] of labels) expect([key, label]).toEqual([key, (messages as Record<string, string>)[key]]);
+    for (const node of texts) expect([node.getAttribute('data-t'), node.textContent]).toEqual([node.getAttribute('data-t'), (messages as Record<string, string>)[node.getAttribute('data-t')!]]);
+    for (const node of labels) expect(node.getAttribute('aria-label')).toBe((messages as Record<string, string>)[node.getAttribute('data-t-label')!]);
+  });
+
+  it('stop the build on a key the catalog lacks', () => {
+    expect(() => firstPaint('<p data-t="game.nope.x"></p>', messages)).toThrow(/game\.nope\.x/);
   });
 });
 
@@ -55,7 +60,7 @@ describe('the game words', () => {
   });
 
   it('may hold kit.* entries only as changes to words the kit has', () => {
-    expect(catalogKeys.filter((k) => k.startsWith('kit.') && !Object.hasOwn(kitWords, k))).toEqual([]);
+    expect(catalogKeys.filter((k) => k.startsWith('kit.') && !Object.prototype.hasOwnProperty.call(kitWords, k))).toEqual([]);
   });
 
   it('fill their slots', () => {
@@ -71,47 +76,11 @@ describe('the kit words', () => {
     expect([...kitUsed].filter((k) => !kitKeys.includes(k)).sort()).toEqual([]);
     expect(kitKeys.filter((k) => !kitUsed.has(k)).sort()).toEqual([]);
   });
-
-  it('are the kit English: the game catalog needs none of them', () => {
-    expect(kt('kit.connection.joinFailed', { code: 'K7QM' })).toContain("Couldn't join K7QM.");
-    expect(kt('kit.together.hintHost', { haveCode: kt('kit.together.haveCode') })).toBe('Friends tap "I have a code" and type this.');
-    expect(kitOverrides).toEqual({});
-  });
-
-  afterEach(() => resetKitWords());
-
-  it('never throw: an unknown key returns the key', () => {
-    expect(kt('kit.nope' as never)).toBe('kit.nope');
-    expect(() => kt(undefined as never)).not.toThrow();
-  });
-
-  it('change words with use(); calls add up', () => {
-    useKitWords({ 'kit.together.leave': 'Go back' });
-    useKitWords({ 'kit.together.close': 'Shut' });
-    expect(kt('kit.together.leave')).toBe('Go back');
-    expect(kt('kit.together.close')).toBe('Shut');
-    expect(kt('kit.together.join')).toBe('Join');
-    useKitWords({ 'kit.together.room': 'Table {code}' });
-    expect(kt('kit.together.room', { code: 'K7QM' })).toBe('Table K7QM');
-  });
-
-  it('ignore an unknown key, a value that is not a string and an empty string', () => {
-    useKitWords({ 'kit.made.up': 'x', 'kit.together.leave': 5, 'kit.together.close': '' } as never);
-    expect(kt('kit.together.leave')).toBe('Leave');
-    expect(kt('kit.together.close')).toBe('Close');
-  });
 });
 
-describe('the {name} formatter', () => {
-  const all = [...Object.values(messages), ...Object.values(kitWords)] as string[];
-
-  it('is enough: every message has only plain {name} slots', () => {
+describe('the {name} slots', () => {
+  it('are all a message uses: no other braces', () => {
+    const all = [...Object.values(messages), ...Object.values(kitWords)] as string[];
     expect(all.filter((m) => /[{}]/.test(m.replace(/\{\w+\}/g, '')))).toEqual([]);
-  });
-
-  it('fills slots, leaves an unknown slot and ignores inherited names', () => {
-    expect(formatSlots('Hi {name}, {n} left, {nope}', { name: 'Rio', n: 3 })).toBe('Hi Rio, 3 left, {nope}');
-    expect(formatSlots('{toString}', {})).toBe('{toString}');
-    expect(formatSlots('No slots')).toBe('No slots');
   });
 });

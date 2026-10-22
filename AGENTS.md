@@ -26,12 +26,12 @@ Write for a child of about 8 to 12, often read aloud by a grown-up. Use short se
 
 ## What is here
 
-- `src/arcade/` is the **arcade kit**: the only door between the game and the arcade. Import `arcade` from `./arcade` and nothing else from that folder. Do not edit it.
+- `src/arcade/` is the **arcade kit**: the only door between the game and the arcade. Import `arcade` from `./arcade` and nothing else from that folder. Do not edit it. `scripts/kit-alone.test.mjs` checks that the kit type-checks when copied on its own; keep it passing.
 - `src/game/rules.ts` is the game's rules: pure code, no screen, no network, seeded random numbers. `step(world, dt, inputs)` returns the next world. It holds a tiny example of the pattern (`World`, `createWorld`, `step`) with a test in `rules.test.ts`; replace it with the real game.
 - `src/game/draw.ts` paints a world on a `<canvas>` (an empty stub until there is a game).
 - `src/main.ts` wires it together: page, keyboard and touch, play together. Today it is only the start page (title, who is playing, Play together, a card).
 - `public/arcade.json` names the game for the arcade (`id`, `title`, `players`, `colour`, `blurb`, `facts`). The `id` must stay lower-case letters, numbers and dashes; changing it makes the game forget its saved data. White text on `colour` must keep a 4.5:1 contrast (a test checks it).
-- `src/i18n/messages/en.json` holds every word the game shows: the `game.*` keys, one flat object. Keys are letters and digits in dotted segments (`game.start.here`). Read each with `t('game.<screen>.<name>')` (from `./i18n/t`); the words in `index.html` are `data-t="game.…"` (text) and `data-t-label="game.…"` (aria-label). Put new words in the file, not in the code, and add a key for each new screen word. Use `{name}` slots only (no plurals or other message syntax: use two messages). Never change or measure what `t()` returns (no `toUpperCase`, `split`, `length`, `includes`): use CSS `text-transform` or work on the data.
+- `src/i18n/messages/en.json` holds every word the game shows: the `game.*` keys, one flat object. Keys are letters and digits in dotted segments (`game.start.here`). Read each with `t('game.<screen>.<name>')` (from `./i18n/t`). The words in `index.html` are `data-t="game.…"` (the element's plain text, written in from `en.json` when the page is served or built; leave the element empty) and `data-t-label="game.…"` (its aria-label). Put new words in the file, not in the code, and add a key for each new screen word. Messages use `{name}` slots only (a test checks this); for a plural, use two messages.
 - The kit's words are the kit's own: `src/arcade/words.ts` (`kit.*` keys), copied with the kit. Do not edit them there. To change one for your game, add its key with your text to `en.json` (for example `"kit.together.leave": "Go back"`): `main.ts` hands every `kit.*` entry there to the kit.
 - When a word leaves the page, delete its key from `en.json` too: the catalog test fails on a key that nothing uses.
 - Plain TypeScript, DOM and canvas. No framework. If the child wants 3D, `npm install three` is fine; keep it bundled like everything else.
@@ -75,7 +75,7 @@ Play together is up to 4 devices, host-authoritative: the host runs the rules an
 4. **Works on an iPad and with a keyboard.** Every action is tappable (48 px or bigger) and has a keyboard way. Touch and drag must work on a canvas (`touch-action: none`). Keep a visible `:focus-visible` outline.
 5. **Respect `prefers-reduced-motion`.** Screen shake, sparkles, spinning and big movement stay behind it.
 6. **Text is 16 px or bigger,** including text drawn on the canvas, with good contrast.
-7. **Keep the game in its own files** (`src/game/`, `src/main.ts`, `src/style.css`). Put rules in pure functions with tests in `src/game/*.test.ts`.
+7. **Keep the game in its own files** (`src/game/`, `src/i18n/`, `src/main.ts`, `src/style.css`). Put rules in pure functions with tests in `src/game/*.test.ts`.
 8. **Be kind with data.** Save only what the game needs. Never read or write browser storage directly; use `arcade.save` and `arcade.load` (they key by game id, because every game on one GitHub account shares one `github.io` address).
 
 ## Check before you say it is done

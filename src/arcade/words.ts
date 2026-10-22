@@ -4,8 +4,7 @@
  * words with `arcade.words.use(catalog)` (keys must be ones listed here). The kit's lookup never throws:
  * an unknown key returns the key, and dev warns once.
  *
- * Messages use `{name}` slots. Never change or measure what `kt()` returns (no toUpperCase, split,
- * slice, length, includes): change a word in words.ts or in the game's catalog instead.
+ * Messages use `{name}` slots and nothing else.
  */
 
 export const kitWords = {
@@ -34,7 +33,7 @@ export const kitWords = {
   'kit.together.hintGuest': 'You are in this game.',
   'kit.together.whoIsHere': 'Who is here',
   'kit.together.tags': '({roles})',
-  'kit.together.roleSep': ', ',
+  'kit.together.roleSep': ',',
   'kit.together.roleHost': 'host',
   'kit.together.roleYou': 'you',
   'kit.together.reconnecting': 'Reconnecting…',
@@ -84,6 +83,7 @@ function warnOnce(problem: string): void {
  * ignored (the kit's English stays). Called by `arcade.words.use`.
  */
 export function useKitWords(catalog: Partial<Record<KitKey, string>>): void {
+  if (!catalog) return;
   for (const key of Object.keys(catalog)) {
     const value: unknown = (catalog as Record<string, unknown>)[key];
     if (!hasOwn(kitWords, key)) warnOnce(`words.use: "${key}" is not a kit word; ignored`);

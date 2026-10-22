@@ -9,7 +9,7 @@
 import { kt } from './words';
 import { GameConnection, generateCode, normalizeCode, type ConnStatus } from './peer';
 import { GameHost } from './host';
-import { cleanName, type Player } from './player';
+import { cleanName, DEFAULT_PLAYER, type Player } from './player';
 import { isWire, messageProblem, type Wire } from './wire';
 
 export const HOST_ID = 'host';
@@ -194,7 +194,7 @@ class HostRoom extends RoomBase {
 
   private onWire(id: string, w: Wire): void {
     if (w.k === 'hello') {
-      this.guests.set(id, { name: cleanName(w.name) ?? 'Player', colour: w.colour.toLowerCase() });
+      this.guests.set(id, { name: cleanName(w.name) ?? DEFAULT_PLAYER.name, colour: w.colour.toLowerCase() });
       this.refresh();
     } else if (w.k === 'g' && this.guests.has(id)) {
       this.deliver(w.d, id);
@@ -339,7 +339,7 @@ export function createTogether({ gameId, getPlayer }: TogetherDeps): Together {
   const prefix = `ak1-${gameId}-`;
   let active: Room | null = null;
 
-  const me = (): Player => getPlayer() ?? { name: 'Player', colour: '#3d6bd6' };
+  const me = (): Player => getPlayer() ?? DEFAULT_PLAYER;
   const forget = (room: RoomBase) => {
     room.onStatus((s) => {
       if (s === 'left' && active === room) active = null;

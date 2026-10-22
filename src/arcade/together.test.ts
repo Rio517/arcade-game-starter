@@ -143,8 +143,8 @@ describe('arcade.together', () => {
 
     g1.leave();
     await pump();
-    expect(hostSeen.at(-1)).toEqual(['Klara', 'Ola']);
-    expect(seen.at(-1)).toEqual(['Klara', 'Ola']);
+    expect(hostSeen[hostSeen.length - 1]).toEqual(['Klara', 'Ola']);
+    expect(seen[seen.length - 1]).toEqual(['Klara', 'Ola']);
     expect(g1.status).toBe('left');
     host.leave();
     g2.leave();

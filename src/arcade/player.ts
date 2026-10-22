@@ -5,6 +5,9 @@ export interface Player {
   colour: string;
 }
 
+/** Who plays until somebody picks. Its name goes over the wire too, so it is not a translated word. */
+export const DEFAULT_PLAYER: Player = Object.freeze({ name: 'Player', colour: '#3d6bd6' });
+
 export const MAX_NAME_LENGTH = 20;
 
 const COLOUR_RE = /^#[0-9a-fA-F]{6}$/;

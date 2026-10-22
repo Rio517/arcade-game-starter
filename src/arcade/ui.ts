@@ -421,7 +421,7 @@ export function createUi({ getPlayer, setPlayer, together, arcade }: UiDeps): Pl
       for (const p of people) {
         const dot = el('span', { class: 'ak-dot', 'aria-hidden': 'true' });
         dot.style.background = p.colour;
-        const roles = [p.isHost ? kt('kit.together.roleHost') : '', p.me ? kt('kit.together.roleYou') : ''].filter(Boolean).join(kt('kit.together.roleSep'));
+        const roles = [p.isHost ? kt('kit.together.roleHost') : '', p.me ? kt('kit.together.roleYou') : ''].filter(Boolean).join(`${kt('kit.together.roleSep')} `);
         const tag = roles ? kt('kit.together.tags', { roles }) : '';
         ul.append(el('li', {}, dot, el('span', {}, p.name), ...(tag ? [el('span', { class: 'ak-tag' }, tag)] : [])));
       }
