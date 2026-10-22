@@ -10,7 +10,7 @@ const escape = (text: string): string => text.replace(/&/g, '&amp;').replace(/</
 
 const SKIPPED = /<!--[\s\S]*?-->|<(script|style)\b[\s\S]*?<\/\1\s*>/gi;
 const TAG = /<([a-zA-Z][\w-]*)((?:\s+[^\s"'<>/=]+(?:\s*=\s*(?:"[^"]*"|'[^']*'|[^\s"'=<>`]+))?)*)\s*(\/?)>/g;
-const ATTRIBUTE = /\sdata-t(?:-label)?\b/g;
+const ATTRIBUTE = /(?<=[\s"'])data-t(?:-label)?(?![\w-])/gi;
 
 export function firstPaint(html: string, messages: Record<string, string>): string {
   const word = (key: string, element: string): string => {
@@ -46,7 +46,8 @@ export function firstPaint(html: string, messages: Record<string, string>): stri
       handled += 1;
       if (selfClosing) fail(open, 'a self-closing element has no text');
       const bodyStart = m.index + open.length;
-      const close = chunk.toLowerCase().indexOf(`</${tag.toLowerCase()}`, bodyStart);
+      const found = chunk.slice(bodyStart).search(new RegExp(`</${tag}[\\s>]`, 'i'));
+      const close = found < 0 ? -1 : bodyStart + found;
       if (close < 0) fail(open, `no closing </${tag}>`);
       if (chunk.slice(bodyStart, close).includes('<')) fail(open, 'it has child markup (only plain text)');
       out += start + word(text[1], open);

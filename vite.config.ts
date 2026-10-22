@@ -14,7 +14,7 @@ export default defineConfig({
   base: './',
   // safari15: an iPad on iPadOS 15 still runs the game.
   build: { target: 'safari15' },
-  plugins: [{ name: 'first-paint', transformIndexHtml: (html) => firstPaint(html, JSON.parse(readFileSync(catalog, 'utf8'))) }],
+  plugins: [{ name: 'first-paint', transformIndexHtml: (html) => firstPaint(html, JSON.parse(readFileSync(catalog, 'utf8').replace(/^\uFEFF/, ''))) }],
   test: {
     environment: 'jsdom',
     include: ['src/**/*.test.ts', 'scripts/**/*.test.mjs'],
