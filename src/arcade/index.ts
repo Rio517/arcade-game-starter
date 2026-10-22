@@ -45,7 +45,7 @@ import { cleanPlayer, type Player } from './player';
 import { createStore } from './storage';
 import { createTogether } from './together';
 import { createUi } from './ui';
-import { formatSlots, useKitWords } from './words';
+import { formatSlots, hasOwn, kitWords, useKitWords } from './words';
 
 export type { Player } from './player';
 export type { Person, Room, GameMessage, TogetherStatus, Together } from './together';
@@ -119,6 +119,6 @@ export const arcade = {
   together,
   /** Small ready-made screens: `ensurePlayer`, `playerPicker`, `togetherPanel`. */
   ui,
-  /** The kit's words: `use(catalog)` changes some of its English (only keys listed in words.ts; calls add up), and `format(message, values)` fills `{name}` slots. */
-  words: { use: useKitWords, format: formatSlots },
+  /** The kit's words: `use(catalog)` changes some of its English (only keys listed in words.ts; calls add up), `format(message, values)` fills `{name}` slots, `keys()` lists the kit's word keys and `hasOwn(object, key)` is an own-property test that works on old iPads. Call `use` before building kit UI. */
+  words: { use: useKitWords, format: formatSlots, hasOwn, keys: (): string[] => Object.keys(kitWords) },
 };

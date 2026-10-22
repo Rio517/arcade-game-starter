@@ -45,3 +45,15 @@ describe('the {name} formatter', () => {
     expect(formatSlots('No slots')).toBe('No slots');
   });
 });
+
+describe('the kit screens', () => {
+  it('show a changed word', async () => {
+    const { arcade } = await import('./index');
+    arcade.words.use({ 'kit.together.title': 'Spielen zusammen' });
+    const container = document.createElement('div');
+    document.body.append(container);
+    arcade.ui.togetherPanel(container);
+    expect(container.querySelector('button')?.textContent).toBe('Spielen zusammen');
+    container.remove();
+  });
+});

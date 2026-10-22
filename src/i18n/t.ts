@@ -12,11 +12,10 @@ type Values = Record<string, string | number>;
 export type GameKey = keyof typeof messages;
 
 const catalog: Record<string, string> = messages;
-const has = (key: string): boolean => Object.prototype.hasOwnProperty.call(catalog, key);
 
 /** The game's words. In dev a key that is not in the catalog throws; in production it returns the key. */
 export function t(key: GameKey, values?: Values): string {
-  if (!has(key)) {
+  if (!arcade.words.hasOwn(catalog, key)) {
     if (import.meta.env.DEV) throw new Error(`Missing message key: ${key}`);
     return key;
   }

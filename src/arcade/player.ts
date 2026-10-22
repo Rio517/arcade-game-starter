@@ -6,7 +6,7 @@ export interface Player {
 }
 
 /** Who plays until somebody picks. Its name goes over the wire too, so it is not a translated word. */
-export const DEFAULT_PLAYER: Player = Object.freeze({ name: 'Player', colour: '#3d6bd6' });
+export const DEFAULT_PLAYER: Readonly<Player> = Object.freeze({ name: 'Player', colour: '#3d6bd6' });
 
 export const MAX_NAME_LENGTH = 20;
 

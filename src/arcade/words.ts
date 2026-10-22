@@ -68,6 +68,11 @@ export function formatSlots(message: string, values?: KitValues): string {
   return message.replace(/\{(\w+)\}/g, (slot, name: string) => (hasOwn(values, name) ? String(values[name]) : slot));
 }
 
+/** The `{slots}` of a message, sorted, as one string. */
+function slotsOf(message: string): string {
+  return (message.match(/\{\w+\}/g) ?? []).sort().join(' ');
+}
+
 let overrides: Partial<Record<KitKey, string>> = {};
 const warned = new Set<string>();
 
@@ -79,8 +84,10 @@ function warnOnce(problem: string): void {
 
 /**
  * Give the kit words that replace its English for the keys named (additions only). Calls add up: a later
- * call changes the keys it names and keeps the rest. A key the kit does not know, a value that is not a string, or an empty string is
- * ignored (the kit's English stays). Called by `arcade.words.use`.
+ * call changes the keys it names and keeps the rest. A key the kit does not know, a value that is not a
+ * string, or an empty string is ignored (the kit's English stays). Dev warns when a word's `{slots}` differ
+ * from the English's. Some screens read their labels once when they are built, so call this before building
+ * the kit's UI. Called by `arcade.words.use`.
  */
 export function useKitWords(catalog: Partial<Record<KitKey, string>>): void {
   if (!catalog) return;
@@ -88,7 +95,10 @@ export function useKitWords(catalog: Partial<Record<KitKey, string>>): void {
     const value: unknown = (catalog as Record<string, unknown>)[key];
     if (!hasOwn(kitWords, key)) warnOnce(`words.use: "${key}" is not a kit word; ignored`);
     else if (typeof value !== 'string') warnOnce(`words.use: the value for "${key}" must be a string; ignored`);
-    else if (value !== '') overrides[key as KitKey] = value;
+    else if (value !== '') {
+      if (slotsOf(value) !== slotsOf(kitWords[key as KitKey])) warnOnce(`words.use: "${key}" should have the slots ${slotsOf(kitWords[key as KitKey]) || '(none)'}`);
+      overrides[key as KitKey] = value;
+    }
   }
 }
 

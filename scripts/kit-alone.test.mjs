@@ -17,12 +17,12 @@ it('type-checks when src/arcade is copied alone', { timeout: 120_000 }, () => {
     cpSync(path.join(root, 'public/arcade.json'), path.join(dir, 'public/arcade.json'));
     mkdirSync(path.join(dir, 'src/arcade'), { recursive: true });
     for (const file of readdirSync(path.join(root, 'src/arcade'))) {
-      if (file.endsWith('.ts') && !file.endsWith('.test.ts')) cpSync(path.join(root, 'src/arcade', file), path.join(dir, 'src/arcade', file));
+      if (file.endsWith('.ts')) cpSync(path.join(root, 'src/arcade', file), path.join(dir, 'src/arcade', file));
     }
     writeFileSync(path.join(dir, 'tsconfig.json'), JSON.stringify({ extends: path.join(root, 'tsconfig.json'), include: ['src'] }));
     const tsc = path.join(root, 'node_modules/typescript/bin/tsc');
     const result = spawnSync(process.execPath, [tsc, '-p', dir, '--noEmit'], { encoding: 'utf8' });
-    expect(result.stdout + result.stderr).toBe('');
+    expect(result.error?.message ?? result.stdout + result.stderr).toBe('');
     expect(result.status).toBe(0);
   } finally {
     rmSync(dir, { recursive: true, force: true });

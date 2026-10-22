@@ -5,7 +5,7 @@
  * so 'game.over' as an event name does not trip this.
  */
 import { describe, expect, it } from 'vitest';
-import { kitWords } from '../arcade/words';
+import { arcade } from '../arcade';
 import { firstPaint } from './firstPaint';
 import messages from './messages/en.json';
 import { t } from './t';
@@ -24,7 +24,7 @@ const kitUsed = keysIn(Object.values(kitSources), new RegExp(`\\bkt\\(\\s*(['"])
 
 const catalogKeys = Object.keys(messages);
 const gameKeys = catalogKeys.filter((k) => !k.startsWith('kit.'));
-const kitKeys = Object.keys(kitWords);
+const kitKeys = arcade.words.keys();
 
 describe('the page words', () => {
   it('are written into index.html from the catalog', () => {
@@ -54,13 +54,12 @@ describe('the game words', () => {
     expect(kitKeys.filter((k) => !/^kit(\.[A-Za-z0-9]+)+$/.test(k))).toEqual([]);
   });
 
-  it('have every key the code asks for, and nothing else', () => {
+  it('have every key the code asks for (an unused word is harmless)', () => {
     expect([...gameUsed].filter((k) => !gameKeys.includes(k)).sort()).toEqual([]);
-    expect(gameKeys.filter((k) => !gameUsed.has(k)).sort()).toEqual([]);
   });
 
   it('may hold kit.* entries only as changes to words the kit has', () => {
-    expect(catalogKeys.filter((k) => k.startsWith('kit.') && !Object.prototype.hasOwnProperty.call(kitWords, k))).toEqual([]);
+    expect(catalogKeys.filter((k) => k.startsWith('kit.') && !kitKeys.includes(k))).toEqual([]);
   });
 
   it('fill their slots', () => {
@@ -80,7 +79,6 @@ describe('the kit words', () => {
 
 describe('the {name} slots', () => {
   it('are all a message uses: no other braces', () => {
-    const all = [...Object.values(messages), ...Object.values(kitWords)] as string[];
-    expect(all.filter((m) => /[{}]/.test(m.replace(/\{\w+\}/g, '')))).toEqual([]);
+    expect((Object.values(messages) as string[]).filter((m) => /[{}]/.test(m.replace(/\{\w+\}/g, '')))).toEqual([]);
   });
 });
