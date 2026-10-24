@@ -10,6 +10,24 @@
   --warm: #ffb86b;
   --focus: #ffd54a;
   font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+
+  /* The kit's pause button and menu in this page's look (the hooks are listed in README.md). */
+  --ak-pause-font: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --ak-pause-bg: #2f2a52;
+  --ak-pause-bg-hover: #3b3566;
+  --ak-pause-bg-pressed: var(--bg);
+  --ak-pause-line: #8d86c2;
+  --ak-pause-radius: 999px;
+  --ak-pause-ring: rgba(141, 134, 194, 0.55);
+  --ak-pause-menu-bg: var(--panel);
+  --ak-pause-menu-line: var(--line);
+  --ak-pause-menu-radius: 24px;
+  --ak-pause-item-bg: #2f2a52;
+  --ak-pause-item-radius: 999px;
+  --ak-pause-primary-bg: var(--accent);
+  --ak-pause-primary-bg-hover: #4a79e6;
+  --ak-pause-armed-line: var(--warm);
+  --ak-focus: var(--focus);
 }
 
 * {
@@ -252,6 +270,42 @@ body {
   height: 70%;
   border-radius: 50%;
   background: #1a1433;
+}
+
+.play {
+  position: absolute;
+  left: 50%;
+  top: 40%;
+  transform: translate(-50%, -50%);
+  min-height: 56px;
+  padding: 10px 36px;
+  font-size: 20px;
+  background: var(--accent);
+  border-color: #b4c8f5;
+}
+
+.play:hover {
+  background: #4a79e6;
+}
+
+/* In play: the playfield fills the screen; the kit's pause button sits top right. */
+.playing .top,
+.playing .hero,
+.playing .card,
+.playing .play {
+  display: none;
+}
+
+.playing .field {
+  position: fixed;
+  inset: 0;
+  min-height: 0;
+  border: 0;
+  border-radius: 0;
+}
+
+.paused .orb {
+  animation-play-state: paused;
 }
 
 @media (prefers-reduced-motion: no-preference) {
