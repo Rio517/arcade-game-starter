@@ -133,8 +133,45 @@ measures what `t()` gives back: use CSS for capital letters and the data for
 lengths. The arcade kit (the player card and Play together) keeps its own words
 in `src/arcade/words.ts`, which travels with the kit.
 
-To change a word of the player card or Play together, add its `kit.*` key with
-your text to `en.json`; the keys are listed in `src/arcade/words.ts`.
+To change a word of the player card, Play together or the pause menu, add its
+`kit.*` key with your text to `en.json`; the keys are listed in
+`src/arcade/words.ts`.
+
+## The pause button
+
+Every game pauses the same way: a pause button in the top right corner, and a
+menu that always ends in **Exit**. Exit saves, then goes back to the arcade
+(when the game was opened from there) or to the game's start screen.
+
+```ts
+const pause = arcade.ui.pauseMenu({
+  onPause, onResume,      // stop and start your game loop
+  save,                   // () => void | Promise<void>; Exit waits for it
+  toStart,                // Exit's way to your start screen
+  help,                   // optional: a help button beside pause, Help in the menu
+  items,                  // optional: [{ label, onSelect }] between Resume and Help
+});
+pause.setVisible(true);   // when play starts; Exit to the start screen hides it
+pause.open(); pause.close(); pause.isOpen(); pause.setDisabled(true); pause.destroy();
+```
+
+The menu is Resume, your items, Help, then Exit. Exit needs a second press
+("Yes, exit"). Escape and P pause and resume. Your items run with the menu
+open; call `pause.close()` in one to go back to play.
+
+The look is yours. Set these in your CSS (`:root` is fine): `--ak-pause-size`
+(48px), `--ak-pause-edge`, `--ak-pause-gap`, `--ak-pause-font`, `--ak-pause-fg`,
+`--ak-pause-bg`, `--ak-pause-bg-hover`, `--ak-pause-bg-pressed`,
+`--ak-pause-line`, `--ak-pause-radius`, `--ak-pause-ring`, `--ak-pause-scrim`,
+`--ak-pause-menu-bg`, `--ak-pause-menu-line`, `--ak-pause-menu-radius`,
+`--ak-pause-item-bg`, `--ak-pause-item-radius`, `--ak-pause-primary-bg`,
+`--ak-pause-primary-bg-hover`, `--ak-pause-armed-line`, `--ak-pause-error-bg`
+and `--ak-focus`. The classes are `ak-pause-bar`, `ak-pause-btn`,
+`ak-pause-toggle`, `ak-pause-help`, `ak-pause-face`, `ak-pause-bars`,
+`ak-pause-scrim`, `ak-pause-menu`, `ak-pause-title`, `ak-pause-item`,
+`ak-pause-resume`, `ak-pause-help-item`, `ak-pause-exit` (`ak-armed` after the
+first press) and `ak-pause-error`. Keep the button in its corner: the place is
+the same in every game.
 
 ## For grown-ups
 
