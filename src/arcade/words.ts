@@ -52,6 +52,14 @@ export const kitWords = {
   'kit.connection.reclaiming': 'Reclaiming your code…',
   'kit.connection.hiccup': 'Network hiccup — retrying…',
   'kit.connection.linkClosed': 'Opponent link closed',
+  'kit.pause.pause': 'Pause',
+  'kit.pause.title': 'Paused',
+  'kit.pause.resume': 'Resume',
+  'kit.pause.help': 'Help',
+  'kit.pause.exit': 'Exit',
+  'kit.pause.exitConfirm': 'Yes, exit',
+  'kit.pause.saving': 'Saving…',
+  'kit.pause.saveError': 'Not saved. Try again.',
 } as const;
 
 export type KitKey = keyof typeof kitWords;

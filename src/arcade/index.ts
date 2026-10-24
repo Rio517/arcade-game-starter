@@ -34,6 +34,10 @@
  *   });
  *   // Without the panel: const room = await arcade.together.host()  or  .join('ABCD')
  *
+ *   // In play: the pause button, top right, and a menu that always ends in Exit (it saves, then leaves).
+ *   const pause = arcade.ui.pauseMenu({ onPause, onResume, save, toStart, help, items: [{ label, onSelect }] });
+ *   pause.setVisible(true);                        // when play starts; Exit to your start screen hides it
+ *
  * Rules the kit enforces: messages are plain JSON objects of at most 16 KB;
  * player names are 1 to 20 characters. Nothing else is shared between players.
  */
@@ -45,11 +49,13 @@ import { cleanPlayer, type Player } from './player';
 import { createStore } from './storage';
 import { createTogether } from './together';
 import { createUi } from './ui';
+import { createPauseMenu, type PauseMenu, type PauseMenuOptions } from './pause';
 import { formatSlots, hasOwn, kitWords, useKitWords } from './words';
 
 export type { Player } from './player';
 export type { Person, Room, GameMessage, TogetherStatus, Together } from './together';
 export type { TogetherPanel } from './ui';
+export type { PauseMenu, PauseMenuOptions, PauseItem } from './pause';
 export type { KitKey } from './words';
 export { DEFAULT_PLAYER } from './player';
 export { encodeHandoff, decodeHandoff };
@@ -95,7 +101,16 @@ if (handoff) {
 }
 
 const together = createTogether({ gameId, getPlayer: store.player });
-const ui = createUi({ getPlayer: store.player, setPlayer: store.setPlayer, together, arcade: arcadePlayer });
+const cameFromArcade = (): boolean => store.backUrl() !== null;
+function backToArcade(): void {
+  const back = store.backUrl();
+  if (back) window.location.assign(back);
+}
+const ui = {
+  ...createUi({ getPlayer: store.player, setPlayer: store.setPlayer, together, arcade: arcadePlayer }),
+  /** The pause button (top right) and the pause menu: Resume, your items, Help, Exit. See pause.ts. */
+  pauseMenu: (options: PauseMenuOptions): PauseMenu => createPauseMenu(options, { cameFromArcade, backToArcade }),
+};
 
 export const arcade = {
   /** The id from public/arcade.json. */
@@ -109,15 +124,12 @@ export const arcade = {
   /** Load what `save` stored, or undefined. */
   load: store.load,
   /** True if this game was opened from the family arcade in this tab. */
-  cameFromArcade: (): boolean => store.backUrl() !== null,
+  cameFromArcade,
   /** Go back to the arcade. Does nothing if the game was not opened from it. */
-  backToArcade(): void {
-    const back = store.backUrl();
-    if (back) window.location.assign(back);
-  },
+  backToArcade,
   /** Play together with a 4-letter code: `host()` and `join(code)`. */
   together,
-  /** Small ready-made screens: `ensurePlayer`, `playerPicker`, `togetherPanel`. */
+  /** Small ready-made screens: `ensurePlayer`, `playerPicker`, `togetherPanel`, and `pauseMenu` for play. */
   ui,
   /** The kit's words: `use(catalog)` changes some of its English (only keys listed in words.ts; calls add up), `format(message, values)` fills `{name}` slots, `keys()` lists the kit's word keys and `hasOwn(object, key)` is an own-property test that works on old iPads. Call `use` before building kit UI. */
   words: { use: useKitWords, format: formatSlots, hasOwn, keys: (): string[] => Object.keys(kitWords) },
