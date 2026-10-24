@@ -149,7 +149,7 @@ const pause = arcade.ui.pauseMenu({
   save,                   // () => void | Promise<void>; Exit waits for it
   toStart,                // Exit's way to your start screen
   help,                   // optional: a help button beside pause, Help in the menu
-  items,                  // optional: [{ label, onSelect }] between Resume and Help
+  items,                  // optional: [{ label, onSelect, visible? }] between Resume and Help
   live,                   // optional: () => boolean, true while the game can't stop (a play-together room)
 });
 pause.setVisible(true);   // when play starts; Exit to the start screen hides it
@@ -161,7 +161,11 @@ The menu is Resume, your items, Help, then Exit. Exit needs a second press
 isn't paused (no `onPause` or `onResume`) the title says "Still playing" and Resume
 reads "Back to game".
 Escape and P pause and resume. Your items run with the menu
-open; call `pause.close()` in one to go back to play.
+open; call `pause.close()` in one to go back to play. An item with `visible: () => boolean` shows
+only while it returns true, asked each time the menu opens.
+
+`save` must throw (or reject) when the write fails: that is what keeps the player in the menu
+instead of leaving with progress lost. A save that swallows its own errors lets Exit leave anyway.
 
 The look is yours. Set these in your CSS (`:root` is fine): `--ak-pause-size`
 (48px), `--ak-pause-edge`, `--ak-pause-gap`, `--ak-pause-font`, `--ak-pause-fg`,

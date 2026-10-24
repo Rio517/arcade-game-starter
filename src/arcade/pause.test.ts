@@ -56,6 +56,18 @@ describe('the pause menu', () => {
     expect(labels()).toEqual(['Resume', 'Exit']);
   });
 
+  it('shows an item only while its visible() is true, asked on each open', () => {
+    let unlocked = false;
+    setup({ items: [{ label: 'Map', onSelect: () => {}, visible: () => unlocked }] });
+    const shown = () => [...document.querySelectorAll<HTMLButtonElement>('.ak-pause-item')].filter((b) => !b.hidden).map((b) => b.textContent);
+    menu!.open();
+    expect(shown()).toEqual(['Resume', 'Exit']);
+    menu!.close();
+    unlocked = true;
+    menu!.open();
+    expect(shown()).toEqual(['Resume', 'Map', 'Exit']);
+  });
+
   it('keeps a live game running: no onPause or onResume, a "Still playing" title, Exit still there', async () => {
     let live = true;
     const { calls, options } = setup({ live: () => live });

@@ -21,6 +21,8 @@ export interface PauseItem {
   label: string;
   /** Runs with the menu still open; call `pause.close()` in here to go back to play. */
   onSelect: () => void;
+  /** Shown only while this returns true, asked each time the menu opens (a Map that unlocks mid-game). Always shown if left out. */
+  visible?: () => boolean;
 }
 
 export interface PauseMenuOptions {
@@ -224,6 +226,7 @@ export function createPauseMenu(options: PauseMenuOptions, nav: PauseNav): Pause
     paused = !options.live?.();
     title.textContent = paused ? kt('kit.pause.title') : kt('kit.pause.live');
     resume.textContent = paused ? kt('kit.pause.resume') : kt('kit.pause.back');
+    (options.items ?? []).forEach((item, i) => (own[i].hidden = item.visible ? !item.visible() : false));
     if (paused) options.onPause();
     error.hidden = true;
     disarm();
@@ -353,7 +356,7 @@ export function createPauseMenu(options: PauseMenuOptions, nav: PauseNav): Pause
       if (!e.repeat) closeMenu();
       return;
     }
-    const live = items.filter((b) => !b.disabled);
+    const live = items.filter((b) => !b.disabled && !b.hidden);
     if (live.length === 0) return;
     const at = live.indexOf(document.activeElement as HTMLButtonElement);
     if (key === 'Tab') {
