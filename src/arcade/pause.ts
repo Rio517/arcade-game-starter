@@ -34,6 +34,8 @@ export interface PauseMenuOptions {
   toStart: () => void;
   /** Show your help. Adds a help button beside pause and a Help item in the menu. */
   help?: () => void;
+  /** True while the game can't stop (a play-together room runs on for everyone). The menu still opens, with Exit, but onPause and onResume aren't called and the title says the game goes on. */
+  live?: () => boolean;
   /** Your own items (Restart, Settings, Map), between Resume and Help. */
   items?: PauseItem[];
   /** Where the button and the menu go. document.body if left out. */
@@ -192,6 +194,7 @@ export function createPauseMenu(options: PauseMenuOptions, nav: PauseNav): Pause
   let disabled = false;
   let busy = false;
   let armedAt = -1;
+  let paused = false;
 
   function disarm(): void {
     if (armedAt < 0) return;
@@ -218,7 +221,10 @@ export function createPauseMenu(options: PauseMenuOptions, nav: PauseNav): Pause
   function openMenu(): void {
     if (open) return;
     open = true;
-    options.onPause();
+    paused = !options.live?.();
+    title.textContent = paused ? kt('kit.pause.title') : kt('kit.pause.live');
+    resume.textContent = paused ? kt('kit.pause.resume') : kt('kit.pause.back');
+    if (paused) options.onPause();
     error.hidden = true;
     disarm();
     scrim.hidden = false;
@@ -230,7 +236,7 @@ export function createPauseMenu(options: PauseMenuOptions, nav: PauseNav): Pause
     if (!open || busy) return;
     hideMenu();
     guardPointers();
-    options.onResume();
+    if (paused) options.onResume();
     if (!bar.hidden && !disabled) toggle.focus({ preventScroll: true });
   }
 

@@ -56,6 +56,27 @@ describe('the pause menu', () => {
     expect(labels()).toEqual(['Resume', 'Exit']);
   });
 
+  it('keeps a live game running: no onPause or onResume, a "Still playing" title, Exit still there', async () => {
+    let live = true;
+    const { calls, options } = setup({ live: () => live });
+    menu!.open();
+    expect(q('.ak-pause-title').textContent).toBe('Still playing');
+    expect(labels()).toEqual(['Back to game', 'Exit']);
+    menu!.close();
+    expect(options.onPause).not.toHaveBeenCalled();
+    expect(options.onResume).not.toHaveBeenCalled();
+    live = false;
+    menu!.open();
+    expect(q('.ak-pause-title').textContent).toBe('Paused');
+    expect(labels()).toEqual(['Resume', 'Exit']);
+    menu!.close();
+    expect(calls).toEqual(['pause', 'resume']);
+    live = true;
+    menu!.open();
+    await exitTwice();
+    expect(calls).toEqual(['pause', 'resume', 'save', 'toStart']);
+  });
+
   it('opens with onPause, focuses Resume, and gives focus back to the pause button on close', () => {
     const { options } = setup();
     q('.ak-pause-toggle').click();
@@ -211,7 +232,7 @@ describe('destroy', () => {
 
 describe('the pause words', () => {
   it('are kit words a game can change', () => {
-    for (const k of ['kit.pause.pause', 'kit.pause.title', 'kit.pause.resume', 'kit.pause.help', 'kit.pause.exit', 'kit.pause.exitConfirm', 'kit.pause.saving', 'kit.pause.saveError']) {
+    for (const k of ['kit.pause.pause', 'kit.pause.title', 'kit.pause.live', 'kit.pause.back', 'kit.pause.resume', 'kit.pause.help', 'kit.pause.exit', 'kit.pause.exitConfirm', 'kit.pause.saving', 'kit.pause.saveError']) {
       expect(kitWords).toHaveProperty([k]);
     }
     useKitWords({ 'kit.pause.exit': 'Leave', 'kit.pause.pause': 'Stop' });

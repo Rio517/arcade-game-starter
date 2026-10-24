@@ -150,13 +150,17 @@ const pause = arcade.ui.pauseMenu({
   toStart,                // Exit's way to your start screen
   help,                   // optional: a help button beside pause, Help in the menu
   items,                  // optional: [{ label, onSelect }] between Resume and Help
+  live,                   // optional: () => boolean, true while the game can't stop (a play-together room)
 });
 pause.setVisible(true);   // when play starts; Exit to the start screen hides it
 pause.open(); pause.close(); pause.isOpen(); pause.setDisabled(true); pause.destroy();
 ```
 
 The menu is Resume, your items, Help, then Exit. Exit needs a second press
-("Yes, exit"). Escape and P pause and resume. Your items run with the menu
+("Yes, exit"). While `live()` is true the menu still opens with Exit, but the game
+isn't paused (no `onPause` or `onResume`) the title says "Still playing" and Resume
+reads "Back to game".
+Escape and P pause and resume. Your items run with the menu
 open; call `pause.close()` in one to go back to play.
 
 The look is yours. Set these in your CSS (`:root` is fine): `--ak-pause-size`

@@ -54,6 +54,8 @@ export const kitWords = {
   'kit.connection.linkClosed': 'Opponent link closed',
   'kit.pause.pause': 'Pause',
   'kit.pause.title': 'Paused',
+  'kit.pause.live': 'Still playing',
+  'kit.pause.back': 'Back to game',
   'kit.pause.resume': 'Resume',
   'kit.pause.help': 'Help',
   'kit.pause.exit': 'Exit',
