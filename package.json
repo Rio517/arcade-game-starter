@@ -8,6 +8,8 @@
   },
   "scripts": {
     "dev": "vite",
+    "tools": "vite --mode tools",
+    "notes": "node tools/notes/notes.mjs docs/mockups",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "test": "vitest run",

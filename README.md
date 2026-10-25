@@ -181,6 +181,28 @@ and `--ak-focus`. The classes are `ak-pause-bar`, `ak-pause-btn`,
 first press) and `ak-pause-error`. Keep the button in its corner: the place is
 the same in every game.
 
+## Dev tools
+
+Every look-and-tune page (a sample page comes with the template) is listed on
+one page, served by one dev server:
+
+```bash
+npm run tools      # http://127.0.0.1:4320/ : the dev tools page
+```
+
+- **Port:** 4320 by default, loopback only. Each game sets its own with
+  `DEV_TOOLS_PORT` (the family's studio keeps the list in `ports.md`).
+- **From a phone or iPad on the tailnet:**
+  `tailscale serve --bg --https 4320 http://127.0.0.1:4320`, then open
+  `https://<this computer's tailnet name>:4320/`. `*.ts.net` names are accepted.
+- **Adding a page:** put `preview-<thing>.html` at the repo root and add a line
+  to `src/dev/pages.ts`. `npm test` fails while a root page is missing from it.
+- **Notes on a page:** press Alt+N on any dev page, click an element and write
+  a note. Notes stay drafts until you press **Send**. A helper reads them with
+  `npm run notes -- wait` (`list`, `done <id>`); they are kept in `docs/mockups/`.
+
+No build carries `dev.html`, the notes or `tools/`.
+
 ## For grown-ups
 
 - **What the game keeps**: Players and saves stay in the browser on each
