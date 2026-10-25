@@ -197,6 +197,9 @@ npm run tools      # http://127.0.0.1:4320/ : the dev tools page
   `https://<this computer's tailnet name>:4320/`. `*.ts.net` names are accepted.
 - **Adding a page:** put `preview-<thing>.html` at the repo root and add a line
   to `src/dev/pages.ts`. `npm test` fails while a root page is missing from it.
+- **Start flags:** a link may carry a query (`/index.html?level=3`) to open the
+  game at a set point. Gate such dev-only flags on `import.meta.env.DEV`, not on
+  the host name, or they do nothing over the tailnet name.
 - **Notes on a page:** press Alt+N on any dev page, click an element and write
   a note. Notes stay drafts until you press **Send**. A helper reads them with
   `npm run notes -- wait` (`list`, `done <id>`); they are kept in `docs/mockups/`.
