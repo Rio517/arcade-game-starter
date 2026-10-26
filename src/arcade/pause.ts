@@ -9,7 +9,10 @@
  * ARM_MS later, so a double tap counts once) leaves. A child who taps it by accident sees the change and
  * taps Resume.
  *
- * The DOM is built once; opening, closing, showing and hiding only toggle it. Plain DOM, styles injected from
+ * A game's Settings or help stacks over the menu as a panel (`pause.panel`) with a Back button; Escape walks
+ * back one layer at a time, then resumes, and the game stays paused throughout.
+ *
+ * The menu's DOM is built once; opening, closing, showing and hiding only toggle it. Plain DOM, styles injected from
  * here, words from words.ts. Shapes and colours are the game's to change through the `--ak-pause-*` custom
  * properties and the `ak-pause-*` classes (README, "The pause button").
  */

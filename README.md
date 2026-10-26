@@ -149,11 +149,17 @@ const pause = arcade.ui.pauseMenu({
   save,                   // () => void | Promise<void>; Exit waits for it
   toStart,                // Exit's way to your start screen
   help,                   // optional: a help button beside pause, Help in the menu
-  items,                  // optional: [{ label, onSelect, visible? }] between Resume and Help
+  items,                  // optional: [{ label, onSelect, visible?, id? }] between Resume and Help
   live,                   // optional: () => boolean, true while the game can't stop (a play-together room)
+  releaseKeys,            // optional: forget held keys; runs as the menu opens, before onPause
+  status,                 // optional: a short line under the title ("3D view stopped")
 });
 pause.setVisible(true);   // when play starts; Exit to the start screen hides it
 pause.open(); pause.close(); pause.isOpen(); pause.setDisabled(true); pause.destroy();
+pause.open({ focus: 'settings' });            // focus an item by id ('help' and 'exit' are the kit's)
+const close = pause.panel(el, { title });     // a panel over the menu, with Back
+pause.setStatus('Saved'); pause.setStatus(null);
+pause.helpClosed();                           // your own help (not a panel) has closed
 ```
 
 The menu is Resume, your items, Help, then Exit. Exit needs a second press
@@ -164,6 +170,24 @@ Escape and P pause and resume. Your items run with the menu
 open; call `pause.close()` in one to go back to play. An item with `visible: () => boolean` shows
 only while it returns true, asked each time the menu opens.
 
+**Held keys.** The open menu keeps only the keydowns it acts on (the arrows, Tab, Enter, Space,
+Escape and P) from the game, and never a keyup, so a key held when the menu opened still comes up
+for the game. Clear held keys and fingers in `onResume` (or in `releaseKeys`, which runs first).
+
+**Status line.** `status` puts a short line under the title, read out as status (`role="status"`).
+`pause.setStatus(text)` changes it; `null` takes it away.
+
+**Panels.** `pause.panel(el, { title })` puts your element (Settings, help) over the menu with
+its title and a Back button, and returns the function that closes it. Escape and P go back one
+layer at a time, then resume; Tab stays in the panel; your controls keep every other key. Back
+gives the focus to the item that opened the panel. The game stays paused throughout. Opened
+during play, a panel pauses first and resumes when it closes. To reopen the menu on an item of
+your own, give the item an `id` and call `pause.open({ focus: id })`.
+
+**Help.** Show help with `help: () => void pause.panel(helpEl, { title })` and the "?" button
+tracks it by itself: its `aria-expanded` is true while the panel shows.
+Help of your own (not a panel) sets it too; call `pause.helpClosed()` when your help goes away.
+
 `save` must throw (or reject) when the write fails: that is what keeps the player in the menu
 instead of leaving with progress lost. A save that swallows its own errors lets Exit leave anyway.
 
@@ -173,12 +197,13 @@ The look is yours. Set these in your CSS (`:root` is fine): `--ak-pause-size`
 `--ak-pause-line`, `--ak-pause-radius`, `--ak-pause-ring`, `--ak-pause-scrim`,
 `--ak-pause-menu-bg`, `--ak-pause-menu-line`, `--ak-pause-menu-radius`,
 `--ak-pause-item-bg`, `--ak-pause-item-radius`, `--ak-pause-primary-bg`,
-`--ak-pause-primary-bg-hover`, `--ak-pause-armed-line`, `--ak-pause-error-bg`
-and `--ak-focus`. The classes are `ak-pause-bar`, `ak-pause-btn`,
+`--ak-pause-primary-bg-hover`, `--ak-pause-armed-line`, `--ak-pause-error-bg`,
+`--ak-pause-status-fg` and `--ak-focus`. The classes are `ak-pause-bar`, `ak-pause-btn`,
 `ak-pause-toggle`, `ak-pause-help`, `ak-pause-face`, `ak-pause-bars`,
 `ak-pause-scrim`, `ak-pause-menu`, `ak-pause-title`, `ak-pause-item`,
 `ak-pause-resume`, `ak-pause-help-item`, `ak-pause-exit` (`ak-armed` after the
-first press) and `ak-pause-error`. Keep the button in its corner: the place is
+first press), `ak-pause-error`, `ak-pause-status`, and for panels `ak-pause-layer`,
+`ak-pause-layer-body` and `ak-pause-back`. Keep the button in its corner: the place is
 the same in every game.
 
 ## Dev tools
