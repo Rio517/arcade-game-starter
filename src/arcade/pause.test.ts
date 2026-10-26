@@ -242,9 +242,208 @@ describe('destroy', () => {
   });
 });
 
+describe('held keys', () => {
+  it('a key held when the menu opens comes up for the game: keyups pass, releaseKeys runs before onPause', () => {
+    const calls: string[] = [];
+    setup({ releaseKeys: () => void calls.push('release'), onPause: () => void calls.push('pause') });
+    const held = new Set<string>();
+    const down = (e: KeyboardEvent) => void held.add(e.key);
+    const up = (e: KeyboardEvent) => void held.delete(e.key);
+    window.addEventListener('keydown', down);
+    window.addEventListener('keyup', up);
+    const send = (type: string, k: string) => document.body.dispatchEvent(new KeyboardEvent(type, { key: k, bubbles: true, cancelable: true }));
+    send('keydown', 'ArrowLeft');
+    key('Escape', document.body);
+    expect(calls).toEqual(['release', 'pause']);
+    send('keydown', 'ArrowLeft'); // the key repeats while held: the menu keeps it
+    send('keyup', 'ArrowLeft');
+    expect(held.has('ArrowLeft')).toBe(false);
+    key('Escape');
+    expect(menu!.isOpen()).toBe(false);
+    expect(held.has('ArrowLeft')).toBe(false);
+    window.removeEventListener('keydown', down);
+    window.removeEventListener('keyup', up);
+  });
+
+  it('keeps only the keydowns it acts on from the game', () => {
+    setup();
+    menu!.open();
+    const seen: string[] = [];
+    const game = (e: KeyboardEvent) => void seen.push(e.key);
+    window.addEventListener('keydown', game);
+    for (const k of ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab', 'Enter', ' ', 'x']) key(k);
+    expect(seen).toEqual(['x']);
+    window.removeEventListener('keydown', game);
+  });
+});
+
+describe('the status line', () => {
+  it('shows under the title as status, and changes or goes', () => {
+    setup({ status: '3D view stopped' });
+    menu!.open();
+    const line = q<HTMLElement>('.ak-pause-status');
+    expect(line.getAttribute('role')).toBe('status');
+    expect(line.previousElementSibling).toBe(q('.ak-pause-title'));
+    expect(line.hidden).toBe(false);
+    expect(line.textContent).toBe('3D view stopped');
+    menu!.setStatus('Saved');
+    expect(line.textContent).toBe('Saved');
+    menu!.setStatus(null);
+    expect(line.hidden).toBe(true);
+    menu!.destroy();
+    setup();
+    expect(q<HTMLElement>('.ak-pause-status').hidden).toBe(true);
+  });
+});
+
+describe('open({ focus })', () => {
+  it('focuses the named item, Help or Exit, and Resume when the name is unknown or hidden', () => {
+    let map = false;
+    setup({ help: () => {}, items: [{ label: 'Settings', id: 'settings', onSelect: () => {} }, { label: 'Map', id: 'map', onSelect: () => {}, visible: () => map }] });
+    menu!.open({ focus: 'settings' });
+    expect(document.activeElement?.textContent).toBe('Settings');
+    menu!.open({ focus: 'exit' }); // open already: only the focus moves
+    expect(document.activeElement).toBe(q('.ak-pause-exit'));
+    menu!.close();
+    menu!.open({ focus: 'help' });
+    expect(document.activeElement).toBe(q('.ak-pause-help-item'));
+    menu!.close();
+    menu!.open({ focus: 'map' });
+    expect(document.activeElement).toBe(q('.ak-pause-resume'));
+    menu!.close();
+    map = true;
+    menu!.open({ focus: 'map' });
+    expect(document.activeElement?.textContent).toBe('Map');
+  });
+});
+
+describe('panels', () => {
+  function settingsSetup() {
+    const sheet = document.createElement('div');
+    sheet.innerHTML = '<button type="button" class="loud">Loud</button><button type="button" class="quiet">Quiet</button>';
+    let closeSheet = () => {};
+    const ctx = setup({ items: [{ label: 'Settings', id: 'settings', onSelect: () => void (closeSheet = menu!.panel(sheet, { title: 'Settings' })) }] });
+    return { ...ctx, sheet, close: () => closeSheet() };
+  }
+  const settingsItem = () => [...document.querySelectorAll<HTMLButtonElement>('.ak-pause-item')].find((b) => b.textContent === 'Settings')!;
+
+  it('stacks over the menu with a title and Back, and Back gives the focus to the item that opened it', () => {
+    const { options, sheet } = settingsSetup();
+    menu!.open();
+    settingsItem().click();
+    const layer = q<HTMLElement>('.ak-pause-layer');
+    expect(layer.getAttribute('role')).toBe('dialog');
+    expect(layer.querySelector('.ak-pause-title')!.textContent).toBe('Settings');
+    expect(layer.contains(sheet)).toBe(true);
+    expect(q<HTMLElement>('.ak-pause-menu:not(.ak-pause-layer)').hidden).toBe(true);
+    expect(document.activeElement?.textContent).toBe('Loud');
+    q('.ak-pause-back').click();
+    expect(document.querySelector('.ak-pause-layer')).toBeNull();
+    expect(sheet.isConnected).toBe(false);
+    expect(document.activeElement).toBe(settingsItem());
+    expect(menu!.isOpen()).toBe(true);
+    expect(options.onResume).not.toHaveBeenCalled();
+  });
+
+  it('Escape walks back one layer at a time, then resumes', () => {
+    const { options } = settingsSetup();
+    menu!.open();
+    settingsItem().click();
+    const inner = document.createElement('p');
+    inner.textContent = 'More';
+    menu!.panel(inner, { title: 'More' });
+    expect(document.querySelectorAll('.ak-pause-layer').length).toBe(2);
+    key('Escape');
+    expect(document.querySelectorAll('.ak-pause-layer').length).toBe(1);
+    expect(document.activeElement?.textContent).toBe('Loud');
+    key('Escape');
+    expect(document.querySelector('.ak-pause-layer')).toBeNull();
+    expect(document.activeElement).toBe(settingsItem());
+    expect(options.onResume).not.toHaveBeenCalled();
+    key('Escape');
+    expect(menu!.isOpen()).toBe(false);
+    expect(options.onResume).toHaveBeenCalledOnce();
+  });
+
+  it('keeps Tab inside a panel and lets its controls have the other keys', () => {
+    const { sheet } = settingsSetup();
+    menu!.open();
+    settingsItem().click();
+    key('Tab');
+    expect(document.activeElement?.textContent).toBe('Quiet');
+    key('Tab');
+    expect(document.activeElement).toBe(q('.ak-pause-back'));
+    key('Tab');
+    expect(document.activeElement?.textContent).toBe('Loud');
+    const seen: string[] = [];
+    sheet.addEventListener('keydown', (e) => void seen.push(e.key));
+    key('ArrowRight');
+    expect(seen).toEqual(['ArrowRight']);
+  });
+
+  it('closes from its own function, and with the menu', () => {
+    const { close, options } = settingsSetup();
+    menu!.open();
+    settingsItem().click();
+    close();
+    expect(document.querySelector('.ak-pause-layer')).toBeNull();
+    expect(document.activeElement).toBe(settingsItem());
+    settingsItem().click();
+    menu!.close();
+    expect(document.querySelector('.ak-pause-layer')).toBeNull();
+    expect(options.onResume).toHaveBeenCalledOnce();
+    menu!.open();
+    expect(q<HTMLElement>('.ak-pause-menu').hidden).toBe(false);
+  });
+
+  it('opened during play, it pauses, and closing it resumes', () => {
+    const { options } = setup();
+    const note = document.createElement('p');
+    const close = menu!.panel(note, { title: 'Note' });
+    expect(menu!.isOpen()).toBe(true);
+    expect(options.onPause).toHaveBeenCalledOnce();
+    close();
+    expect(menu!.isOpen()).toBe(false);
+    expect(options.onResume).toHaveBeenCalledOnce();
+  });
+});
+
+describe('the help button', () => {
+  it('is expanded while a help panel shows, from "?" or Help, and "?" toggles it', () => {
+    const help = document.createElement('p');
+    help.textContent = 'Steer with the arrows.';
+    const { options } = setup({ help: () => void menu!.panel(help, { title: 'How to play' }) });
+    const btn = q('.ak-pause-help');
+    expect(btn.getAttribute('aria-expanded')).toBe('false');
+    btn.click(); // in play
+    expect(btn.getAttribute('aria-expanded')).toBe('true');
+    expect(options.onPause).toHaveBeenCalledOnce();
+    btn.click(); // a second press closes it
+    expect(btn.getAttribute('aria-expanded')).toBe('false');
+    expect(menu!.isOpen()).toBe(false);
+    expect(document.activeElement).toBe(btn);
+    menu!.open();
+    q('.ak-pause-help-item').click();
+    expect(btn.getAttribute('aria-expanded')).toBe('true');
+    key('Escape');
+    expect(btn.getAttribute('aria-expanded')).toBe('false');
+    expect(document.activeElement).toBe(q('.ak-pause-help-item'));
+  });
+
+  it('with help of its own, stays expanded until helpClosed()', () => {
+    const { options } = setup({ help: vi.fn() });
+    const btn = q('.ak-pause-help');
+    btn.click();
+    expect(options.help).toHaveBeenCalledOnce();
+    expect(btn.getAttribute('aria-expanded')).toBe('true');
+    menu!.helpClosed();
+    expect(btn.getAttribute('aria-expanded')).toBe('false');
+  });
+});
+
 describe('the pause words', () => {
   it('are kit words a game can change', () => {
-    for (const k of ['kit.pause.pause', 'kit.pause.title', 'kit.pause.live', 'kit.pause.back', 'kit.pause.resume', 'kit.pause.help', 'kit.pause.exit', 'kit.pause.exitConfirm', 'kit.pause.saving', 'kit.pause.saveError']) {
+    for (const k of ['kit.pause.pause', 'kit.pause.title', 'kit.pause.live', 'kit.pause.back', 'kit.pause.resume', 'kit.pause.help', 'kit.pause.exit', 'kit.pause.exitConfirm', 'kit.pause.saving', 'kit.pause.saveError', 'kit.pause.backLayer']) {
       expect(kitWords).toHaveProperty([k]);
     }
     useKitWords({ 'kit.pause.exit': 'Leave', 'kit.pause.pause': 'Stop' });

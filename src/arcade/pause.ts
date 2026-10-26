@@ -23,18 +23,26 @@ export interface PauseItem {
   onSelect: () => void;
   /** Shown only while this returns true, asked each time the menu opens (a Map that unlocks mid-game). Always shown if left out. */
   visible?: () => boolean;
+  /** A name for `pause.open({ focus: id })`. 'help' and 'exit' are the kit's own. */
+  id?: string;
 }
 
 export interface PauseMenuOptions {
   /** The game stops its loop (the menu just opened). */
   onPause: () => void;
-  /** The game starts its loop again (Resume, Escape or P). */
+  /** The game starts its loop again (Resume, Escape or P). Clear held keys and fingers here: the game saw them
+   * go down before the pause and may not have seen them come up. */
   onResume: () => void;
+  /** Forget every held key and pressed button now, as on a window blur. Called as the menu opens, before onPause. */
+  releaseKeys?: () => void;
+  /** A short line under the title ("3D view stopped"), read out as status. Change it with `pause.setStatus`. */
+  status?: string;
   /** Save progress. Exit waits for it; when it throws or rejects, the player stays in the menu. */
   save: () => void | Promise<void>;
   /** Where Exit goes when the game was not opened from the arcade: show your start screen. */
   toStart: () => void;
-  /** Show your help. Adds a help button beside pause and a Help item in the menu. */
+  /** Show your help. Adds a help button beside pause and a Help item in the menu. Show it with `pause.panel()`
+   * and the kit tracks it; help of your own calls `pause.helpClosed()` when it goes away. */
   help?: () => void;
   /** True while the game can't stop (a play-together room runs on for everyone). The menu still opens, with Exit, but onPause and onResume aren't called and the title says the game goes on. */
   live?: () => boolean;
@@ -45,10 +53,19 @@ export interface PauseMenuOptions {
 }
 
 export interface PauseMenu {
-  /** Pause: calls onPause and shows the menu. Does nothing when it is open already. */
-  open(): void;
-  /** Resume: hides the menu and calls onResume. Does nothing while Exit is saving. */
+  /** Pause: calls onPause and shows the menu. `focus` names the item to focus (an item's id, 'help' or 'exit');
+   * Resume when left out or hidden. When the menu is open already, only moves the focus. */
+  open(options?: { focus?: string }): void;
+  /** Resume: closes every panel, hides the menu and calls onResume. Does nothing while Exit is saving. */
   close(): void;
+  /** Put your element over the menu, under `title`, with a Back button. Escape and P go back one layer; Back
+   * gives the focus to the item that opened it. Opens the menu first (paused) when it is closed, and closes it
+   * again with the panel. Returns the function that closes the panel. */
+  panel(el: HTMLElement, options: { title: string }): () => void;
+  /** Change the line under the title; null takes it away. */
+  setStatus(text: string | null): void;
+  /** Your own help (not a `panel`) has closed: the help button shows it as closed again. */
+  helpClosed(): void;
   isOpen(): boolean;
   /** Show the pause button during play, hide it on other screens. Exit to the start screen hides it for you. */
   setVisible(visible: boolean): void;
@@ -69,7 +86,7 @@ export const ARM_MS = 400;
 
 const CSS = `
 .ak-pause-bar{position:fixed;z-index:80;top:calc(env(safe-area-inset-top,0px) + var(--ak-pause-edge,6px));right:calc(env(safe-area-inset-right,0px) + var(--ak-pause-edge,6px));display:flex;gap:var(--ak-pause-gap,4px);font-family:var(--ak-pause-font,system-ui,-apple-system,"Segoe UI",sans-serif)}
-.ak-pause-bar[hidden],.ak-pause-scrim[hidden],.ak-pause-error[hidden]{display:none}
+.ak-pause-bar[hidden],.ak-pause-scrim[hidden],.ak-pause-menu[hidden],.ak-pause-error[hidden],.ak-pause-status[hidden]{display:none}
 .ak-pause-btn{box-sizing:content-box;width:var(--ak-pause-size,48px);height:var(--ak-pause-size,48px);padding:6px;margin:0;border:0;background:none;color:var(--ak-pause-fg,#fff);cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent;-webkit-user-select:none;user-select:none}
 .ak-pause-face{box-sizing:border-box;display:flex;align-items:center;justify-content:center;width:100%;height:100%;border-radius:var(--ak-pause-radius,14px);border:2px solid var(--ak-pause-line,#9db8f2);background:var(--ak-pause-bg,#2a3350);font:700 24px/1 var(--ak-pause-font,system-ui,-apple-system,"Segoe UI",sans-serif)}
 .ak-pause-bars{box-sizing:border-box;width:18px;height:20px;border-left:6px solid currentColor;border-right:6px solid currentColor}
@@ -83,6 +100,10 @@ const CSS = `
 .ak-pause-menu{box-sizing:border-box;width:min(360px,100%);max-height:100%;overflow:auto;padding:20px;border-radius:var(--ak-pause-menu-radius,20px);border:2px solid var(--ak-pause-menu-line,#5a6aa0);background:var(--ak-pause-menu-bg,#1b2238);color:var(--ak-pause-fg,#fff)}
 .ak-pause-title{margin:0 0 14px;font-size:24px;line-height:1.2;text-align:center}
 .ak-pause-items{display:grid;gap:10px}
+.ak-pause-status{margin:-6px 0 14px;font-size:16px;line-height:1.35;text-align:center;color:var(--ak-pause-status-fg,#c9d4f2)}
+.ak-pause-layer{display:flex;flex-direction:column;overflow:hidden}
+.ak-pause-layer-body{flex:1 1 auto;min-height:0;overflow:auto;margin:0 0 14px;font-size:18px;line-height:1.4}
+.ak-pause-back{flex:none}
 .ak-pause-item{box-sizing:border-box;min-height:56px;width:100%;padding:10px 20px;border-radius:var(--ak-pause-item-radius,14px);border:2px solid var(--ak-pause-line,#9db8f2);background:var(--ak-pause-item-bg,#2a3350);color:var(--ak-pause-fg,#fff);font:600 20px/1.2 var(--ak-pause-font,system-ui,-apple-system,"Segoe UI",sans-serif);cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
 .ak-pause-item:hover{background:var(--ak-pause-bg-hover,#34406a)}
 .ak-pause-resume{background:var(--ak-pause-primary-bg,#3d6bd6)}
@@ -128,6 +149,16 @@ function typing(target: EventTarget | null): boolean {
   return target.isContentEditable || target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement;
 }
 
+/** What Tab can reach inside a panel. */
+function focusables(root: HTMLElement): HTMLElement[] {
+  const all = root.querySelectorAll<HTMLElement>('button,[href],input,select,textarea,[tabindex]');
+  return Array.prototype.filter.call(all, (el: HTMLElement) => el.tabIndex >= 0 && !(el as HTMLButtonElement).disabled && !el.closest('[hidden]')) as HTMLElement[];
+}
+
+/** Keys the open menu acts on. Only their keydowns stop here; every keyup reaches the game, so a key held
+ * when the menu opened never sticks. */
+const MENU_KEYS = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab', 'Enter', ' '];
+
 let uid = 0;
 
 export function createPauseMenu(options: PauseMenuOptions, nav: PauseNav): PauseMenu {
@@ -142,6 +173,7 @@ export function createPauseMenu(options: PauseMenuOptions, nav: PauseNav): Pause
   const helpButton = options.help ? button('ak-pause-btn ak-pause-help', '', kt('kit.pause.help')) : null;
   if (helpButton) {
     helpButton.append(face(document.createTextNode('?')));
+    helpButton.setAttribute('aria-expanded', 'false');
     bar.append(helpButton);
   }
   const bars = document.createElement('span');
@@ -176,7 +208,7 @@ export function createPauseMenu(options: PauseMenuOptions, nav: PauseNav): Pause
     b.addEventListener('click', () => {
       if (busy) return;
       disarm();
-      item.onSelect();
+      select(b, item.onSelect);
     });
     return b;
   });
@@ -184,11 +216,19 @@ export function createPauseMenu(options: PauseMenuOptions, nav: PauseNav): Pause
   const exit = button('ak-pause-item ak-pause-exit', kt('kit.pause.exit'));
   const items = [resume, ...own, ...(helpItem ? [helpItem] : []), exit];
   list.append(...items);
+  const byId = new Map<string, HTMLButtonElement>();
+  (options.items ?? []).forEach((item, i) => item.id && byId.set(item.id, own[i]));
+  if (helpItem) byId.set('help', helpItem);
+  byId.set('exit', exit);
+  const status = document.createElement('p');
+  status.className = 'ak-pause-status';
+  status.setAttribute('role', 'status');
   const error = document.createElement('p');
   error.className = 'ak-pause-error';
   error.setAttribute('role', 'alert');
   error.hidden = true;
-  menu.append(title, list, error);
+  menu.append(title, status, list, error);
+  setStatus(options.status ?? null);
   scrim.append(menu);
   container.append(bar, scrim);
 
@@ -197,6 +237,62 @@ export function createPauseMenu(options: PauseMenuOptions, nav: PauseNav): Pause
   let busy = false;
   let armedAt = -1;
   let paused = false;
+  /** The button whose action is running: a panel it opens gives the focus back to it. */
+  let selecting: HTMLElement | null = null;
+  /** help() is running: a panel it opens is the help. */
+  let helpRunning = false;
+
+  /** A panel over the menu. `ownsMenu`: it opened the menu, so the menu closes with it. */
+  interface Layer {
+    box: HTMLElement;
+    el: HTMLElement;
+    opener: HTMLElement | null;
+    ownsMenu: boolean;
+    help: boolean;
+    closed: boolean;
+  }
+  const layers: Layer[] = [];
+  let layerCount = 0;
+
+  function select(from: HTMLElement, run: () => void): void {
+    const was = selecting;
+    selecting = from;
+    try {
+      run();
+    } finally {
+      selecting = was;
+    }
+  }
+
+  function setStatus(text: string | null): void {
+    status.textContent = text ?? '';
+    status.hidden = !text;
+  }
+
+  function setHelpShown(on: boolean): void {
+    helpButton?.setAttribute('aria-expanded', String(on));
+  }
+
+  function showHelp(from: HTMLElement): void {
+    if (!options.help) return;
+    const before = layers.length;
+    helpRunning = true;
+    try {
+      select(from, options.help);
+    } finally {
+      helpRunning = false;
+    }
+    if (layers.length === before) setHelpShown(true); // the game's own help: shown until helpClosed()
+  }
+
+  /** The box on top: the last panel, or the menu. */
+  function top(): HTMLElement {
+    return layers.length ? layers[layers.length - 1].box : menu;
+  }
+
+  function shown(el: HTMLElement | null): el is HTMLElement {
+    return !!el && el.isConnected && !el.closest('[hidden]') && !(el as HTMLButtonElement).disabled;
+  }
 
   function disarm(): void {
     if (armedAt < 0) return;
@@ -212,27 +308,46 @@ export function createPauseMenu(options: PauseMenuOptions, nav: PauseNav): Pause
     exit.textContent = on ? kt('kit.pause.saving') : kt('kit.pause.exit');
   }
 
+  function dropLayer(layer: Layer): void {
+    layer.closed = true;
+    layer.el.remove();
+    layer.box.remove();
+    if (layer.help) setHelpShown(false);
+  }
+
   /** Hide the menu without resuming (Exit to the start screen). */
   function hideMenu(): void {
     open = false;
+    for (const layer of layers.splice(0)) dropLayer(layer);
+    menu.hidden = false;
     scrim.hidden = true;
     toggle.setAttribute('aria-expanded', 'false');
+    setHelpShown(false);
     disarm();
   }
 
-  function openMenu(): void {
-    if (open) return;
+  function focusItem(name?: string): void {
+    const b = name ? byId.get(name) : undefined;
+    (shown(b ?? null) ? b! : resume).focus({ preventScroll: true });
+  }
+
+  function openMenu(opts?: { focus?: string }): void {
+    if (open) {
+      if (!layers.length) focusItem(opts?.focus);
+      return;
+    }
     open = true;
     paused = !options.live?.();
     title.textContent = paused ? kt('kit.pause.title') : kt('kit.pause.live');
     resume.textContent = paused ? kt('kit.pause.resume') : kt('kit.pause.back');
     (options.items ?? []).forEach((item, i) => (own[i].hidden = item.visible ? !item.visible() : false));
+    options.releaseKeys?.();
     if (paused) options.onPause();
     error.hidden = true;
     disarm();
     scrim.hidden = false;
     toggle.setAttribute('aria-expanded', 'true');
-    resume.focus({ preventScroll: true });
+    focusItem(opts?.focus);
   }
 
   function closeMenu(): void {
@@ -241,6 +356,55 @@ export function createPauseMenu(options: PauseMenuOptions, nav: PauseNav): Pause
     guardPointers();
     if (paused) options.onResume();
     if (!bar.hidden && !disabled) toggle.focus({ preventScroll: true });
+  }
+
+  function openPanel(el: HTMLElement, opts: { title: string }): () => void {
+    const active = document.activeElement instanceof HTMLElement && document.activeElement !== document.body ? document.activeElement : null;
+    const opener = selecting ?? active;
+    const ownsMenu = !open;
+    if (!open) openMenu();
+    const box = document.createElement('div');
+    box.className = 'ak-pause-menu ak-pause-layer';
+    box.setAttribute('role', 'dialog');
+    box.setAttribute('aria-modal', 'true');
+    const heading = document.createElement('h2');
+    heading.className = 'ak-pause-title';
+    heading.id = `ak-pause-layer-${id}-${++layerCount}`;
+    heading.textContent = opts.title;
+    box.setAttribute('aria-labelledby', heading.id);
+    const body = document.createElement('div');
+    body.className = 'ak-pause-layer-body';
+    body.append(el);
+    const back = button('ak-pause-item ak-pause-back', kt('kit.pause.backLayer'));
+    box.append(heading, body, back);
+    const layer: Layer = { box, el, opener, ownsMenu, help: helpRunning, closed: false };
+    back.addEventListener('click', () => closeLayer(layer));
+    top().hidden = true;
+    layers.push(layer);
+    scrim.append(box);
+    if (layer.help) setHelpShown(true);
+    (focusables(body)[0] ?? back).focus({ preventScroll: true });
+    return () => closeLayer(layer);
+  }
+
+  /** Back one layer: the panel and any over it close, and the focus goes back to what opened it. */
+  function closeLayer(layer: Layer): void {
+    if (layer.closed) return;
+    for (const l of layers.splice(layers.indexOf(layer))) dropLayer(l);
+    if (layer.ownsMenu) {
+      closeMenu();
+      if (!open && shown(layer.opener) && bar.contains(layer.opener)) layer.opener.focus({ preventScroll: true });
+      return;
+    }
+    const box = top();
+    box.hidden = false;
+    const target = shown(layer.opener) && box.contains(layer.opener) ? layer.opener : box === menu ? resume : focusables(box)[0];
+    target?.focus({ preventScroll: true });
+  }
+
+  function back(): void {
+    if (layers.length) closeLayer(layers[layers.length - 1]);
+    else closeMenu();
   }
 
   async function leave(): Promise<void> {
@@ -283,13 +447,16 @@ export function createPauseMenu(options: PauseMenuOptions, nav: PauseNav): Pause
   helpItem?.addEventListener('click', () => {
     if (busy) return;
     disarm();
-    options.help?.();
+    showHelp(helpItem);
   });
   toggle.addEventListener('click', () => {
     if (!disabled) openMenu();
   });
   helpButton?.addEventListener('click', () => {
-    if (!disabled) options.help?.();
+    if (disabled) return;
+    const help = layers.find((l) => l.help);
+    if (help) closeLayer(help);
+    else showHelp(helpButton);
   });
   // keyboard: moving off an armed Exit takes the question back
   list.addEventListener('focusin', (e) => {
@@ -299,7 +466,7 @@ export function createPauseMenu(options: PauseMenuOptions, nav: PauseNav): Pause
   // ── pressed: shown at once on the press, ringed past the finger ──
   const press = (e: Event) => {
     const b = (e.target as Element | null)?.closest?.('button');
-    if (b && !b.disabled && (bar.contains(b) || list.contains(b))) b.setAttribute('data-pressed', '');
+    if (b && !b.disabled && (bar.contains(b) || b.classList.contains('ak-pause-item'))) b.setAttribute('data-pressed', '');
   };
   const release = (e: Event) => {
     const b = (e.target as Element | null)?.closest?.('button');
@@ -307,7 +474,7 @@ export function createPauseMenu(options: PauseMenuOptions, nav: PauseNav): Pause
   };
   // a press on the pause button is not a press in the game
   const keepFromGame = (e: Event) => e.stopPropagation();
-  for (const root of [bar, list]) {
+  for (const root of [bar, scrim]) {
     root.addEventListener('pointerdown', press);
     for (const type of ['pointerup', 'pointercancel', 'pointerleave', 'lostpointercapture']) root.addEventListener(type, release, true);
   }
@@ -342,31 +509,41 @@ export function createPauseMenu(options: PauseMenuOptions, nav: PauseNav): Pause
     if (e.type !== 'touchmove' && (e as TouchEvent).touches.length === 0) touchGuard = false;
   };
 
-  // ── keys: Escape and P toggle; inside the menu Tab stays in it and the arrows move ──
+  // ── keys: Escape and P go back one layer, then resume; in the menu Tab stays in it and the arrows move ──
+  const cycle = (list: HTMLElement[], step: number) => {
+    if (list.length === 0) return;
+    const at = list.indexOf(document.activeElement as HTMLElement);
+    list[at < 0 ? 0 : (at + step + list.length) % list.length].focus();
+  };
   const onKeyOpen = (e: KeyboardEvent) => {
     if (!open) return;
-    // a panel the game put over the menu (its help) keeps its own keys
+    const box = top();
+    // a panel the game put over the menu itself (its own help) keeps its own keys
     const other = e.target instanceof Element ? e.target.closest('[role="dialog"],[role="alertdialog"],dialog') : null;
-    if (other && other !== menu) return;
-    e.stopPropagation(); // the paused game hears no keys
-    if (e.type !== 'keydown' || e.ctrlKey || e.metaKey || e.altKey) return;
+    if (other && other !== box) return;
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
     const key = e.key;
-    if (key === 'Escape' || key === 'p' || key === 'P') {
+    if (key === 'Escape' || ((key === 'p' || key === 'P') && !typing(e.target))) {
+      e.stopPropagation();
       e.preventDefault();
-      if (!e.repeat) closeMenu();
+      if (!e.repeat) back();
       return;
     }
-    const live = items.filter((b) => !b.disabled && !b.hidden);
-    if (live.length === 0) return;
-    const at = live.indexOf(document.activeElement as HTMLButtonElement);
-    if (key === 'Tab') {
+    if (box !== menu) {
+      // a panel: Tab stays in it; its own controls keep every other key
+      if (key !== 'Tab') return;
+      e.stopPropagation();
       e.preventDefault();
-      const next = at < 0 ? 0 : (at + (e.shiftKey ? -1 : 1) + live.length) % live.length;
-      live[next].focus();
-    } else if (key === 'ArrowDown' || key === 'ArrowUp') {
+      cycle(focusables(box), e.shiftKey ? -1 : 1);
+      return;
+    }
+    if (!MENU_KEYS.includes(key)) return;
+    e.stopPropagation(); // the paused game hears no menu keys (Enter and Space still press the focused item)
+    if (key === 'Tab' || key === 'ArrowDown' || key === 'ArrowUp') {
       e.preventDefault();
-      const next = at < 0 ? 0 : (at + (key === 'ArrowUp' ? -1 : 1) + live.length) % live.length;
-      live[next].focus();
+      cycle(items.filter((b) => !b.disabled && !b.hidden), key === 'ArrowUp' || (key === 'Tab' && e.shiftKey) ? -1 : 1);
+    } else if (key === 'ArrowLeft' || key === 'ArrowRight') {
+      e.preventDefault();
     }
   };
   const onKeyPlay = (e: KeyboardEvent) => {
@@ -384,7 +561,6 @@ export function createPauseMenu(options: PauseMenuOptions, nav: PauseNav): Pause
 
   const listeners: Array<[EventTarget, string, EventListener, boolean]> = [
     [window, 'keydown', onKeyOpen as EventListener, true],
-    [window, 'keyup', onKeyOpen as EventListener, true],
     [window, 'keydown', onKeyPlay as EventListener, false],
     [window, 'pointerdown', onPointerDown as EventListener, true],
     [window, 'pointermove', onPointerMove as EventListener, true],
@@ -401,6 +577,11 @@ export function createPauseMenu(options: PauseMenuOptions, nav: PauseNav): Pause
     open: openMenu,
     close: closeMenu,
     isOpen: () => open,
+    panel: openPanel,
+    setStatus,
+    helpClosed() {
+      if (!layers.some((l) => l.help)) setHelpShown(false);
+    },
     setVisible(visible) {
       bar.hidden = !visible;
     },

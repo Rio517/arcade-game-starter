@@ -62,6 +62,7 @@ export const kitWords = {
   'kit.pause.exitConfirm': 'Yes, exit',
   'kit.pause.saving': 'Saving…',
   'kit.pause.saveError': 'Not saved. Try again.',
+  'kit.pause.backLayer': 'Back',
 } as const;
 
 export type KitKey = keyof typeof kitWords;
