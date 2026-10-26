@@ -188,7 +188,8 @@ your own, give the item an `id` and call `pause.open({ focus: id })`.
 tracks it by itself: its `aria-expanded` is true while the panel shows.
 Help of your own (not a panel) sets it too; call `pause.helpOpened()` when it opens without the
 button (a key, a guide at the start) and `pause.helpClosed()` when it goes away. A panel is 360px wide;
-set `--ak-pause-panel-width` (for example `640px`) to widen panels, never past the screen.
+set `--ak-pause-panel-width` (for example `640px`) to widen every panel, or pass `width` to one
+(`pause.panel(el, { title, width: '900px' })`); never past the screen.
 
 `save` must throw (or reject) when the write fails: that is what keeps the player in the menu
 instead of leaving with progress lost. A save that swallows its own errors lets Exit leave anyway.

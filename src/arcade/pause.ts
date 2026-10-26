@@ -64,7 +64,7 @@ export interface PauseMenu {
   /** Put your element over the menu, under `title`, with a Back button. Escape and P go back one layer; Back
    * gives the focus to the item that opened it. Opens the menu first (paused) when it is closed, and closes it
    * again with the panel. Returns the function that closes the panel. */
-  panel(el: HTMLElement, options: { title: string }): () => void;
+  panel(el: HTMLElement, options: { title: string; width?: string }): () => void;
   /** Change the line under the title; null takes it away. */
   setStatus(text: string | null): void;
   /** Your own help (not a `panel`) has opened by itself (a key, a guide at the start): the help button shows it open. */
@@ -363,7 +363,7 @@ export function createPauseMenu(options: PauseMenuOptions, nav: PauseNav): Pause
     if (!bar.hidden && !disabled) toggle.focus({ preventScroll: true });
   }
 
-  function openPanel(el: HTMLElement, opts: { title: string }): () => void {
+  function openPanel(el: HTMLElement, opts: { title: string; width?: string }): () => void {
     const active = document.activeElement instanceof HTMLElement && document.activeElement !== document.body ? document.activeElement : null;
     const opener = selecting ?? active;
     const ownsMenu = !open;
@@ -372,6 +372,7 @@ export function createPauseMenu(options: PauseMenuOptions, nav: PauseNav): Pause
     box.className = 'ak-pause-menu ak-pause-layer';
     box.setAttribute('role', 'dialog');
     box.setAttribute('aria-modal', 'true');
+    if (opts.width) box.style.setProperty('--ak-pause-panel-width', opts.width); // this panel only
     const heading = document.createElement('h2');
     heading.className = 'ak-pause-title';
     heading.id = `ak-pause-layer-${id}-${++layerCount}`;

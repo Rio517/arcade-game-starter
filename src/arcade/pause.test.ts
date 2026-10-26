@@ -455,6 +455,15 @@ describe('the help button', () => {
     expect(btn.getAttribute('aria-expanded')).toBe('false');
   });
 
+  it('a panel can take its own width; the next panel keeps the default', () => {
+    setup();
+    menu!.panel(document.createElement('div'), { title: 'Settings', width: '900px' });
+    menu!.panel(document.createElement('div'), { title: 'Controls' });
+    const [wide, plain] = Array.from(document.querySelectorAll<HTMLElement>('.ak-pause-layer'));
+    expect(wide.style.getPropertyValue('--ak-pause-panel-width')).toBe('900px');
+    expect(plain.style.getPropertyValue('--ak-pause-panel-width')).toBe('');
+  });
+
   it('help the game opens by itself shows as open after helpOpened(), closed after helpClosed()', () => {
     setup({ help: vi.fn() });
     const btn = q('.ak-pause-help');
