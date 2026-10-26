@@ -95,6 +95,7 @@ Run this check after every change, before you tell the family a change is ready.
    Look at every hit. A script, stylesheet, font, picture, sound or data file from another address breaks rule 1: bundle it (`npm install` it, or put the file in `public/`) or draw it in code. Namespace strings such as `http://www.w3.org/2000/svg` and `data:` addresses are fine. If you cannot remove something, tell the family in plain words what it loads and from where.
 4. **Play together:** the **Play together** button is still there, and the host still runs the rules.
 5. **Play it:** if you can open a browser, run `npm run dev` and play a round.
+   A fresh test browser has no player, so the game sends it to the arcade's player page. In a scripted check, open the game at `#arcade=<payload>` (`encodeHandoff` in `src/arcade/handoff.ts`) to arrive as a player. Clear `arcade-kit:back` from session storage where a check expects Exit to go to the start screen.
 
 Then tell the family what changed, what to try, and anything you could not do.
 
