@@ -454,6 +454,15 @@ describe('the help button', () => {
     menu!.helpClosed();
     expect(btn.getAttribute('aria-expanded')).toBe('false');
   });
+
+  it('help the game opens by itself shows as open after helpOpened(), closed after helpClosed()', () => {
+    setup({ help: vi.fn() });
+    const btn = q('.ak-pause-help');
+    menu!.helpOpened();
+    expect(btn.getAttribute('aria-expanded')).toBe('true');
+    menu!.helpClosed();
+    expect(btn.getAttribute('aria-expanded')).toBe('false');
+  });
 });
 
 describe('the pause words', () => {

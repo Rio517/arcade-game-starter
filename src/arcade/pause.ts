@@ -67,6 +67,8 @@ export interface PauseMenu {
   panel(el: HTMLElement, options: { title: string }): () => void;
   /** Change the line under the title; null takes it away. */
   setStatus(text: string | null): void;
+  /** Your own help (not a `panel`) has opened by itself (a key, a guide at the start): the help button shows it open. */
+  helpOpened(): void;
   /** Your own help (not a `panel`) has closed: the help button shows it as closed again. */
   helpClosed(): void;
   isOpen(): boolean;
@@ -104,7 +106,7 @@ const CSS = `
 .ak-pause-title{margin:0 0 14px;font-size:24px;line-height:1.2;text-align:center}
 .ak-pause-items{display:grid;gap:10px}
 .ak-pause-status{margin:-6px 0 14px;font-size:16px;line-height:1.35;text-align:center;color:var(--ak-pause-status-fg,#c9d4f2)}
-.ak-pause-layer{display:flex;flex-direction:column;overflow:hidden}
+.ak-pause-layer{display:flex;flex-direction:column;overflow:hidden;width:min(var(--ak-pause-panel-width,360px),100%)}
 .ak-pause-layer-body{flex:1 1 auto;min-height:0;overflow:auto;margin:0 0 14px;font-size:18px;line-height:1.4}
 .ak-pause-back{flex:none}
 .ak-pause-item{box-sizing:border-box;min-height:56px;width:100%;padding:10px 20px;border-radius:var(--ak-pause-item-radius,14px);border:2px solid var(--ak-pause-line,#9db8f2);background:var(--ak-pause-item-bg,#2a3350);color:var(--ak-pause-fg,#fff);font:600 20px/1.2 var(--ak-pause-font,system-ui,-apple-system,"Segoe UI",sans-serif);cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
@@ -584,6 +586,9 @@ export function createPauseMenu(options: PauseMenuOptions, nav: PauseNav): Pause
     isOpen: () => open,
     panel: openPanel,
     setStatus,
+    helpOpened() {
+      setHelpShown(true);
+    },
     helpClosed() {
       if (!layers.some((l) => l.help)) setHelpShown(false);
     },

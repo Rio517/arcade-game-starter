@@ -159,6 +159,7 @@ pause.open(); pause.close(); pause.isOpen(); pause.setDisabled(true); pause.dest
 pause.open({ focus: 'settings' });            // focus an item by id ('help' and 'exit' are the kit's)
 const close = pause.panel(el, { title });     // a panel over the menu, with Back
 pause.setStatus('Saved'); pause.setStatus(null);
+pause.helpOpened();                           // your own help opened by itself (a key, a guide)
 pause.helpClosed();                           // your own help (not a panel) has closed
 ```
 
@@ -185,7 +186,9 @@ your own, give the item an `id` and call `pause.open({ focus: id })`.
 
 **Help.** Show help with `help: () => void pause.panel(helpEl, { title })` and the "?" button
 tracks it by itself: its `aria-expanded` is true while the panel shows.
-Help of your own (not a panel) sets it too; call `pause.helpClosed()` when your help goes away.
+Help of your own (not a panel) sets it too; call `pause.helpOpened()` when it opens without the
+button (a key, a guide at the start) and `pause.helpClosed()` when it goes away. A panel is 360px wide;
+set `--ak-pause-panel-width` (for example `640px`) to widen panels, never past the screen.
 
 `save` must throw (or reject) when the write fails: that is what keeps the player in the menu
 instead of leaving with progress lost. A save that swallows its own errors lets Exit leave anyway.
