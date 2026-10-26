@@ -265,14 +265,29 @@ describe('held keys', () => {
     window.removeEventListener('keyup', up);
   });
 
-  it('keeps only the keydowns it acts on from the game', () => {
+  it('keeps every key press from the paused game, menu keys and others (R must not restart a paused game)', () => {
     setup();
     menu!.open();
     const seen: string[] = [];
     const game = (e: KeyboardEvent) => void seen.push(e.key);
     window.addEventListener('keydown', game);
-    for (const k of ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab', 'Enter', ' ', 'x']) key(k);
-    expect(seen).toEqual(['x']);
+    for (const k of ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab', 'Enter', ' ', 'x', 'r']) key(k);
+    expect(seen).toEqual([]);
+    window.removeEventListener('keydown', game);
+  });
+
+  it('a panel: its own controls get every key, the game behind hears none', () => {
+    setup();
+    const field = document.createElement('input');
+    menu!.panel(field, { title: 'Settings' });
+    const inField: string[] = [], inGame: string[] = [];
+    field.addEventListener('keydown', (e) => void inField.push(e.key));
+    const game = (e: KeyboardEvent) => void inGame.push(e.key);
+    window.addEventListener('keydown', game);
+    field.dispatchEvent(new KeyboardEvent('keydown', { key: 'r', bubbles: true, cancelable: true }));
+    field.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true, cancelable: true }));
+    expect(inField).toEqual(['r', 'ArrowLeft']);
+    expect(inGame).toEqual([]);
     window.removeEventListener('keydown', game);
   });
 });

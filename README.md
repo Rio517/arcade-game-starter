@@ -170,9 +170,8 @@ Escape and P pause and resume. Your items run with the menu
 open; call `pause.close()` in one to go back to play. An item with `visible: () => boolean` shows
 only while it returns true, asked each time the menu opens.
 
-**Held keys.** The open menu keeps only the keydowns it acts on (the arrows, Tab, Enter, Space,
-Escape and P) from the game, and never a keyup, so a key held when the menu opened still comes up
-for the game. Clear held keys and fingers in `onResume` (or in `releaseKeys`, which runs first).
+**Held keys.** The open menu keeps every key press from the paused game but never a keyup, so a
+key held when the menu opened still comes up for the game. Clear held keys and fingers in `onResume` (or in `releaseKeys`, which runs first).
 
 **Status line.** `status` puts a short line under the title, read out as status (`role="status"`).
 `pause.setStatus(text)` changes it; `null` takes it away.

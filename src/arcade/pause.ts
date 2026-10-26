@@ -158,8 +158,8 @@ function focusables(root: HTMLElement): HTMLElement[] {
   return Array.prototype.filter.call(all, (el: HTMLElement) => el.tabIndex >= 0 && !(el as HTMLButtonElement).disabled && !el.closest('[hidden]')) as HTMLElement[];
 }
 
-/** Keys the open menu acts on. Only their keydowns stop here; every keyup reaches the game, so a key held
- * when the menu opened never sticks. */
+/** Keys the open menu acts on. Every keydown stops at the menu (the paused game hears no presses); every keyup
+ * reaches the game, so a key held when the menu opened never sticks. */
 const MENU_KEYS = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab', 'Enter', ' '];
 
 let uid = 0;
@@ -382,6 +382,8 @@ export function createPauseMenu(options: PauseMenuOptions, nav: PauseNav): Pause
     box.append(heading, body, back);
     const layer: Layer = { box, el, opener, ownsMenu, help: helpRunning, closed: false };
     back.addEventListener('click', () => closeLayer(layer));
+    // The panel's own controls get every key; the paused game behind it hears no presses (keyups still pass).
+    box.addEventListener('keydown', (e) => e.stopPropagation());
     top().hidden = true;
     layers.push(layer);
     scrim.append(box);
@@ -540,8 +542,8 @@ export function createPauseMenu(options: PauseMenuOptions, nav: PauseNav): Pause
       cycle(focusables(box), e.shiftKey ? -1 : 1);
       return;
     }
+    e.stopPropagation(); // the paused game hears no key presses; keyups still reach it, so a held key never sticks
     if (!MENU_KEYS.includes(key)) return;
-    e.stopPropagation(); // the paused game hears no menu keys (Enter and Space still press the focused item)
     if (key === 'Tab' || key === 'ArrowDown' || key === 'ArrowUp') {
       e.preventDefault();
       cycle(items.filter((b) => !b.disabled && !b.hidden), key === 'ArrowUp' || (key === 'Tab' && e.shiftKey) ? -1 : 1);
